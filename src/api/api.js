@@ -24,9 +24,16 @@ export async function apiPut(path, body) {
   return res.json();
 }
 
-export async function apiDelete(path) {
+export async function apiDelete(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
   });
+
+  if (!res.ok) {
+    throw new Error("Delete failed");
+  }
+
   return res.json();
 }

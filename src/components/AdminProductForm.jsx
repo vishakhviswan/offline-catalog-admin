@@ -1,92 +1,118 @@
 import { useEffect, useState } from "react";
-import { apiGet, apiPost, apiPut } from "../api/api";
+import toast from "react-hot-toast";
+import {
+  Box,
+  Button,
+  Card,
+  TextField,
+  Select,
+  MenuItem,
+  Typography,
+  Stack,
+  IconButton,
+} from "@mui/material";
+import AutorenewIcon from "@mui/icons-material/Autorenew";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import AddIcon from "@mui/icons-material/Add";
+
+import { apiPost, apiPut } from "../api/api";
 import { uploadProductImage } from "../utils/uploadProductImage";
+
+/* ================= UNIT PRESETS ================= */
+const UNIT_PRESETS = [
+  { name: "pcs", multiplier: 1 },
+  { name: "kg", multiplier: 1 },
+  { name: "gram", multiplier: 0.001 },
+  { name: "liter", multiplier: 1 },
+  { name: "ml", multiplier: 0.001 },
+  { name: "meter", multiplier: 1 },
+  { name: "sqft", multiplier: 1 },
+  { name: "sqm", multiplier: 1 },
+  { name: "dozen", multiplier: 12 },
+  { name: "box", multiplier: 1 },
+  { name: "packet", multiplier: 1 },
+];
+
+/* ================= HELPERS ================= */
+function rotateUnit(list, index) {
+  const copy = [...list];
+  const [item] = copy.splice(index, 1);
+  index === list.length - 1
+    ? copy.unshift(item)
+    : copy.splice(index + 1, 0, item);
+  return copy;
+}
 
 export default function AdminProductForm({
   editingProduct,
-  categories,
+  categories = [],
+  products = [],
   onSaved,
   onCancel,
 }) {
+  /* ================= STATE ================= */
   const [name, setName] = useState("");
   const [categoryId, setCategoryId] = useState("");
+  const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("");
 
-  // ✅ Units always array
-  const [units, setUnits] = useState([{ name: "pcs", multiplier: 1 }]);
-
-  const [salesPrice, setSalesPrice] = useState("");
-  const [hasMrp, setHasMrp] = useState(false);
-  const [mrp, setMrp] = useState("");
-
-  const [applyDiscount, setApplyDiscount] = useState(false);
-  const [discountPercent, setDiscountPercent] = useState("");
-  const [discountAmount, setDiscountAmount] = useState("");
+  const [units, setUnits] = useState([
+    { name: "pcs", multiplier: 1, isCustom: false },
+  ]);
 
   const [preview, setPreview] = useState("");
   const [imageFile, setImageFile] = useState(null);
-
   const [loading, setLoading] = useState(false);
-  const [stock, setStock] = useState(0);
 
-  /* ---------------- EDIT MODE ---------------- */
+  /* ================= EDIT MODE ================= */
   useEffect(() => {
     if (!editingProduct) return;
 
     setName(editingProduct.name || "");
     setCategoryId(editingProduct.category_id || "");
-    setSalesPrice(editingProduct.price || "");
+    setPrice(editingProduct.price ?? "");
+    setStock(editingProduct.stock ?? "");
 
-    if (Array.isArray(editingProduct.units)) {
-      setUnits(editingProduct.units);
+    if (editingProduct.units?.length) {
+      setUnits(
+        editingProduct.units.map((u) => ({
+          name: u.name,
+          multiplier: u.multiplier,
+          isCustom: !UNIT_PRESETS.some((p) => p.name === u.name),
+        })),
+      );
     }
 
-    if (editingProduct.mrp) {
-      setHasMrp(true);
-      setMrp(editingProduct.mrp);
-    }
-
-    if (editingProduct.discount_percentage) {
-      setApplyDiscount(true);
-      setDiscountPercent(editingProduct.discount_percentage);
-    }
-    setStock(editingProduct.stock ?? 0);
     setPreview(editingProduct.images?.[0] || "");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, [editingProduct]);
 
-  /* ---------------- AUTO DISCOUNT ---------------- */
-  useEffect(() => {
-    if (!hasMrp) return;
-
-    // No discount → sales price = MRP
-    if (!applyDiscount || !discountPercent) {
-      setDiscountAmount("");
-      setSalesPrice(mrp ? Number(mrp) : "");
-      return;
-    }
-
-    const discount = (Number(mrp) * Number(discountPercent)) / 100;
-    const finalPrice = Number(mrp) - discount;
-
-    setDiscountAmount(discount.toFixed(2));
-    setSalesPrice(finalPrice.toFixed(2)); // ✅ AUTO UPDATE
-  }, [mrp, discountPercent, hasMrp, applyDiscount]);
-
-  /* ---------------- IMAGE ---------------- */
+  /* ================= IMAGE ================= */
   function handleFile(e) {
     const file = e.target.files[0];
     if (!file) return;
     setImageFile(file);
     setPreview(URL.createObjectURL(file));
+    toast.success("Image selected");
   }
 
-  /* ---------------- SAVE ---------------- */
+  /* ================= SAVE ================= */
   async function saveProduct(e) {
     e.preventDefault();
 
-    if (!name || !categoryId || !salesPrice) {
-      alert("Please fill required fields");
-      return;
-    }
+    if (!name.trim()) return toast.error("Product name ആവശ്യമാണ്");
+    if (!price || Number(price) <= 0) return toast.error("Valid price നൽകണം");
+
+    const normalized = name.trim().toLowerCase();
+    const duplicate = products.find(
+      (p) =>
+        p.name?.trim().toLowerCase() === normalized &&
+        p.id !== editingProduct?.id,
+    );
+    if (duplicate) return toast.error("ഈ product name ഇതിനകം ഉണ്ട്");
+
+    const validUnits = units.filter((u) => u.name && u.multiplier > 0);
+    if (!validUnits.length) return toast.error("At least one unit ആവശ്യമാണ്");
 
     setLoading(true);
 
@@ -94,74 +120,142 @@ export default function AdminProductForm({
       let imageUrl = "";
 
       if (imageFile) {
-        imageUrl = await uploadProductImage(imageFile);
+        try {
+          imageUrl = await uploadProductImage(imageFile);
+          toast.success("Image uploaded");
+        } catch {
+          toast.error("Image upload failed");
+        }
       }
 
       const payload = {
         name: name.trim(),
-        category_id: categoryId,
-        units,
-        price: Number(salesPrice),
-        mrp: hasMrp ? Number(mrp) : null,
-        discount_percentage:
-          hasMrp && applyDiscount ? Number(discountPercent) : 0,
-        stock: Number(stock),
+        category_id: categoryId || null,
+        price: Number(price),
+        stock: stock ? Number(stock) : 0,
         availability: Number(stock) > 0,
-        images: imageUrl ? [imageUrl] : [],
+        units: validUnits.map(({ name, multiplier }) => ({
+          name,
+          multiplier,
+        })),
+        images: imageUrl ? [imageUrl] : editingProduct?.images || [],
       };
 
-      if (editingProduct) {
-        await apiPut(`/api/products/${editingProduct.id}`, payload);
-      } else {
-        await apiPost("/api/products", payload);
-      }
+      editingProduct
+        ? await apiPut(`/api/products/${editingProduct.id}`, payload)
+        : await apiPost("/api/products", payload);
 
+      toast.success(editingProduct ? "Product updated ✅" : "Product added ✅");
       onSaved?.();
-      alert("Product saved ✅");
     } catch (err) {
       console.error(err);
-      alert("Save failed ❌");
+      toast.error("Save failed ❌");
     } finally {
       setLoading(false);
     }
   }
 
-  /* ---------------- UI ---------------- */
+  /* ================= UI ================= */
   return (
-    <form onSubmit={saveProduct} style={card}>
-      <h2 style={title}>{editingProduct ? "Edit Product" : "Add Product"}</h2>
+    <Card sx={{ p: 3, maxWidth: 1000, mx: "auto" }}>
+      <form onSubmit={saveProduct}>
+        {/* TOP */}
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+          <TextField
+            label="Product Name *"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            fullWidth
+          />
 
-      {/* BASIC */}
-      <Section title="Basic Details">
-        <Grid>
-          <Field title="Product Name *">
-            <input
-              style={input}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </Field>
+          <Select
+            value={categoryId}
+            displayEmpty
+            onChange={(e) => setCategoryId(e.target.value)}
+            sx={{ minWidth: 180 }}
+          >
+            <MenuItem value="">Category (optional)</MenuItem>
+            {categories.map((c) => (
+              <MenuItem key={c.id} value={c.id}>
+                {c.name}
+              </MenuItem>
+            ))}
+          </Select>
 
-          <Field title="Category *">
-            <select
-              style={input}
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
+          <Box
+            onClick={() => document.getElementById("imgInput").click()}
+            sx={{
+              width: { xs: "100%", md: 90 },
+              height: { xs: 120, md: 90 },
+              border: "2px dashed #cbd5e1",
+              borderRadius: 2,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
+            {preview ? (
+              <img
+                src={preview}
+                alt=""
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : (
+              <Typography fontSize={13} color="text.secondary">
+                Image
+              </Typography>
+            )}
+            <input hidden id="imgInput" type="file" onChange={handleFile} />
+          </Box>
+        </Stack>
+
+        {/* UNITS */}
+        <Typography mt={3} fontWeight={600}>
+          Units
+        </Typography>
+
+        <Stack spacing={1.5} mt={1}>
+          {units.map((u, i) => (
+            <Box
+              key={i}
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                p: 1,
+                borderRadius: 2,
+                border: "1px solid #e5e7eb",
+                background: "#f9fafb",
+              }}
             >
-              <option value="">Select</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+              <Select
+                size="small"
+                value={u.isCustom ? "__custom__" : u.name}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const copy = [...units];
+                  if (val === "__custom__") {
+                    copy[i] = { name: "", multiplier: 1, isCustom: true };
+                  } else {
+                    const found = UNIT_PRESETS.find((p) => p.name === val);
+                    copy[i] = { ...found, isCustom: false };
+                  }
+                  setUnits(copy);
+                }}
+                sx={{ minWidth: 110 }}
+              >
+                {UNIT_PRESETS.map((p) => (
+                  <MenuItem key={p.name} value={p.name}>
+                    {p.name}
+                  </MenuItem>
+                ))}
+                <MenuItem value="__custom__">Custom…</MenuItem>
+              </Select>
 
-          <Field title="Units">
-            {units.map((u, i) => (
-              <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6 }}>
-                <input
-                  style={input}
+              {u.isCustom && (
+                <TextField
+                  size="small"
                   placeholder="Unit"
                   value={u.name}
                   onChange={(e) => {
@@ -169,243 +263,86 @@ export default function AdminProductForm({
                     copy[i].name = e.target.value;
                     setUnits(copy);
                   }}
+                  sx={{ width: 120 }}
                 />
-                <input
-                  style={input}
-                  type="number"
-                  placeholder="Multiplier"
-                  value={u.multiplier}
-                  onChange={(e) => {
-                    const copy = [...units];
-                    copy[i].multiplier = Number(e.target.value);
-                    setUnits(copy);
-                  }}
-                />
-              </div>
-            ))}
-            <button
-              type="button"
-              style={linkBtn}
-              onClick={() => setUnits([...units, { name: "", multiplier: 1 }])}
-            >
-              ➕ Add Unit
-            </button>
-          </Field>
+              )}
 
-          <Field title="Sales Price *">
-            <input
-              type="number"
-              style={{
-                ...input,
-                background: hasMrp ? "#f1f5f9" : "#fff",
-                cursor: hasMrp ? "not-allowed" : "text",
-              }}
-              value={salesPrice}
-              readOnly={hasMrp}
-              onChange={(e) => setSalesPrice(e.target.value)}
-            />
-          </Field>
-        </Grid>
-        <Field title="Stock Quantity*">
-          <input
+              <TextField
+                size="small"
+                type="number"
+                value={u.multiplier}
+                onChange={(e) => {
+                  const copy = [...units];
+                  copy[i].multiplier = Number(e.target.value);
+                  setUnits(copy);
+                }}
+                sx={{ width: 90 }}
+              />
+
+              <IconButton onClick={() => setUnits(rotateUnit(units, i))}>
+                <AutorenewIcon fontSize="small" />
+              </IconButton>
+
+              <IconButton
+                color="error"
+                disabled={units.length === 1}
+                onClick={() => setUnits(units.filter((_, idx) => idx !== i))}
+              >
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          ))}
+
+          <Button
+            startIcon={<AddIcon />}
+            onClick={() =>
+              setUnits([
+                ...units,
+                { name: "pcs", multiplier: 1, isCustom: false },
+              ])
+            }
+          >
+            Add Unit
+          </Button>
+        </Stack>
+
+        {/* PRICE */}
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2} mt={3}>
+          <TextField
+            label="Price *"
             type="number"
-            style={input}
-            min={0}
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            fullWidth
+          />
+          <TextField
+            label="Stock (optional)"
+            type="number"
             value={stock}
             onChange={(e) => setStock(e.target.value)}
+            fullWidth
           />
-        </Field>
-      </Section>
+        </Stack>
 
-      {/* IMAGE */}
-      <Section title="Product Image">
-        <input type="file" accept="image/*" onChange={handleFile} />
-        {preview && <img src={preview} alt="" style={previewImg} />}
-      </Section>
-
-      {/* PRICING */}
-      <Section title="Pricing">
-        <Toggle title="Has MRP?" value={hasMrp} onChange={setHasMrp} />
-
-        {hasMrp && (
-          <>
-            <Field title="MRP (₹)">
-              <input
-                type="number"
-                style={input}
-                value={mrp}
-                onChange={(e) => setMrp(e.target.value)}
-              />
-            </Field>
-
-            <Toggle
-              title="Apply Discount?"
-              value={applyDiscount}
-              onChange={setApplyDiscount}
-            />
-
-            {applyDiscount && (
-              <Grid>
-                <Field title="Discount %">
-                  <input
-                    type="number"
-                    style={input}
-                    value={discountPercent}
-                    onChange={(e) => setDiscountPercent(e.target.value)}
-                  />
-                </Field>
-                <div
-                  style={{ fontSize: 13, color: "#16a34a", fontWeight: 600 }}
-                >
-                  Final Sales Price: ₹{salesPrice}
-                </div>
-
-                <Field title="Discount Amount (₹)">
-                  <input style={input} value={discountAmount} readOnly />
-                </Field>
-              </Grid>
-            )}
-          </>
-        )}
-      </Section>
-
-      {/* ACTIONS */}
-      <div style={actions}>
-        <button type="button" style={cancelBtn} onClick={onCancel}>
-          Cancel
-        </button>
-
-        <button type="submit" style={saveBtn} disabled={loading}>
-          {loading ? "Saving..." : "Save Product"}
-        </button>
-      </div>
-    </form>
+        {/* ACTIONS */}
+        <Stack direction="row" spacing={2} mt={4}>
+          <Button fullWidth variant="outlined" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button
+            fullWidth
+            variant="contained"
+            type="submit"
+            disabled={loading}
+          >
+            {loading
+              ? "Saving..."
+              : editingProduct
+                ? "Update Product"
+                : "Save Product"}
+          </Button>
+        </Stack>
+      </form>
+    </Card>
   );
 }
-
-/* ================= SMALL COMPONENTS ================= */
-
-const Section = ({ title, children }) => (
-  <div style={{ marginBottom: 28 }}>
-    <h4 style={sectionTitle}>{title}</h4>
-    <div style={sectionBox}>{children}</div>
-  </div>
-);
-
-const Grid = ({ children }) => (
-  <div
-    style={{
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))",
-      gap: 14,
-    }}
-  >
-    {children}
-  </div>
-);
-
-const Field = ({ title, children }) => (
-  <div>
-    <label style={label}>{title}</label>
-    {children}
-  </div>
-);
-
-const Toggle = ({ title, value, onChange }) => (
-  <div style={toggleRow} onClick={() => onChange(!value)}>
-    <span>{title}</span>
-    <div
-      style={{
-        width: 42,
-        height: 22,
-        borderRadius: 20,
-        background: value ? "#2563eb" : "#cbd5e1",
-        position: "relative",
-      }}
-    >
-      <div
-        style={{
-          width: 18,
-          height: 18,
-          borderRadius: "50%",
-          background: "#fff",
-          position: "absolute",
-          top: 2,
-          left: value ? 22 : 2,
-        }}
-      />
-    </div>
-  </div>
-);
-
-/* ================= STYLES ================= */
-
-const card = {
-  maxWidth: 900,
-  background: "#fff",
-  padding: 24,
-  borderRadius: 16,
-  boxShadow: "0 10px 30px rgba(0,0,0,.08)",
-};
-const title = { marginBottom: 20 };
-const sectionTitle = { marginBottom: 10, fontSize: 16 };
-const sectionBox = {
-  background: "#f8fafc",
-  padding: 18,
-  borderRadius: 14,
-  border: "1px solid #e5e7eb",
-};
-const label = {
-  fontSize: 13,
-  fontWeight: 600,
-  marginBottom: 6,
-  display: "block",
-};
-const input = {
-  width: "100%",
-  padding: "12px 14px",
-  borderRadius: 10,
-  border: "1px solid #d1d5db",
-  fontSize: 15,
-};
-const toggleRow = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  marginBottom: 14,
-  cursor: "pointer",
-};
-const saveBtn = {
-  flex: 1,
-  padding: 14,
-  borderRadius: 12,
-  border: "none",
-  background: "linear-gradient(135deg,#2563eb,#1e40af)",
-  color: "#fff",
-  fontSize: 15,
-  fontWeight: 600,
-};
-const cancelBtn = {
-  flex: 1,
-  padding: 14,
-  borderRadius: 12,
-  border: "1px solid #cbd5e1",
-  background: "#fff",
-  fontWeight: 600,
-};
-const actions = { display: "flex", gap: 12, marginTop: 20 };
-const previewImg = {
-  marginTop: 12,
-  width: 120,
-  height: 120,
-  objectFit: "cover",
-  borderRadius: 10,
-  border: "1px solid #ddd",
-};
-const linkBtn = {
-  background: "none",
-  border: "none",
-  color: "#2563eb",
-  fontWeight: 600,
-  cursor: "pointer",
-};
