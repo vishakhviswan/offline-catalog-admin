@@ -185,14 +185,16 @@ export default function AdminProductForm({
           <Box
             onClick={() => document.getElementById("imgInput").click()}
             sx={{
-              width: { xs: "100%", md: 90 },
-              height: { xs: 120, md: 90 },
+              width: "100%",
+              aspectRatio: "1/1",
+              maxWidth: 240,
               border: "2px dashed #cbd5e1",
-              borderRadius: 2,
+              borderRadius: 6,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               cursor: "pointer",
+              overflow: "hidden",
             }}
           >
             {preview ? (
@@ -202,11 +204,17 @@ export default function AdminProductForm({
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             ) : (
-              <Typography fontSize={13} color="text.secondary">
-                Image
+              <Typography fontSize={12} color="text.secondary">
+                Recommended: 1080x1080 (square)
               </Typography>
             )}
-            <input hidden id="imgInput" type="file" onChange={handleFile} />
+            <input
+              hidden
+              id="imgInput"
+              type="file"
+              accept="image/*"
+              onChange={handleFile}
+            />
           </Box>
         </Stack>
 
