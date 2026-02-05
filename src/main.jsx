@@ -3,7 +3,6 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import { Toaster } from "react-hot-toast";
 
-
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <Toaster
@@ -12,9 +11,17 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         duration: 3000,
         style: {
           borderRadius: "10px",
-          fontWeight:600,
+          fontWeight: 600,
         },
-    }}/>
+      }}
+    />
     <App />
   </React.StrictMode>,
 );
+
+/* ===========PWA SERVICE WORKER===========*/
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/offline-catalog-app/sw.js").catch(() => {});
+  });
+}
