@@ -6,57 +6,56 @@ import {
   Typography,
   Stack,
   TextField,
-  Select,
-  MenuItem,
   Card,
   IconButton,
   Drawer,
-  ToggleButton,
-  ToggleButtonGroup,
   Checkbox,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Select,
+  MenuItem,
   useMediaQuery,
 } from "@mui/material";
 
 import AddIcon from "@mui/icons-material/Add";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import ImageIcon from "@mui/icons-material/Image";
-import ImageNotSupportedIcon from "@mui/icons-material/ImageNotSupported";
-import ViewModuleIcon from "@mui/icons-material/ViewModule";
-import ViewListIcon from "@mui/icons-material/ViewList";
+import FilterListIcon from "@mui/icons-material/FilterList";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 
 import { apiGet, apiDelete } from "../api/api";
 import AdminProductForm from "../components/AdminProductForm";
 
 export default function Products() {
-  /* ================= STATE ================= */
+  /* ================= DATA ================= */
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // UI
+  /* ================= UI ================= */
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [viewMode, setViewMode] = useState("grid");
+  const [filterOpen, setFilterOpen] = useState(false);
 
-  // Filters
+  /* ================= FILTER STATE ================= */
   const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [imageFilter, setImageFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("name");
+  const [category, setCategory] = useState("");
+  const [imageFilter, setImageFilter] = useState("all"); // all | with | without
+  const [stockFilter, setStockFilter] = useState("all"); // all | in | out
 
-  // Bulk
   const [selected, setSelected] = useState([]);
 
   const isMobile = useMediaQuery("(max-width:768px)");
-  const effectiveView = isMobile ? "list" : viewMode;
 
   /* ================= LOAD ================= */
   async function loadProducts() {
     try {
       setLoading(true);
-      const data = await apiGet("/api/products");
-      setProducts(data || []);
+      setProducts((await apiGet("/api/products")) || []);
       setSelected([]);
     } catch {
       toast.error("Products load failed");
@@ -66,12 +65,7 @@ export default function Products() {
   }
 
   async function loadCategories() {
-    try {
-      const data = await apiGet("/api/categories");
-      setCategories(data || []);
-    } catch {
-      toast.error("Categories load failed");
-    }
+    setCategories((await apiGet("/api/categories")) || []);
   }
 
   useEffect(() => {
@@ -79,126 +73,110 @@ export default function Products() {
     loadCategories();
   }, []);
 
-  /* ================= FILTERED ================= */
+  /* ================= FILTER LOGIC ================= */
   const filteredProducts = useMemo(() => {
     let list = [...products];
 
-    if (search) {
+    if (search)
       list = list.filter((p) =>
         p.name?.toLowerCase().includes(search.toLowerCase()),
       );
-    }
 
-    if (categoryFilter) {
-      list = list.filter((p) => p.category_id === categoryFilter);
-    }
+    if (category) list = list.filter((p) => p.category_id === category);
 
-    if (imageFilter === "with") {
-      list = list.filter((p) => p.images?.length);
-    }
+    if (imageFilter === "with") list = list.filter((p) => p.images?.length);
 
-    if (imageFilter === "without") {
-      list = list.filter((p) => !p.images?.length);
-    }
+    if (imageFilter === "without") list = list.filter((p) => !p.images?.length);
 
-    list.sort((a, b) => {
-      if (sortBy === "price") return a.price - b.price;
-      if (sortBy === "stock") return (a.stock || 0) - (b.stock || 0);
-      return a.name.localeCompare(b.name);
-    });
+    if (stockFilter === "in")
+      list = list.filter((p) => Number(p.stock || 0) > 0);
+
+    if (stockFilter === "out")
+      list = list.filter((p) => Number(p.stock || 0) === 0);
 
     return list;
-  }, [products, search, categoryFilter, imageFilter, sortBy]);
+  }, [products, search, category, imageFilter, stockFilter]);
+
+  /* ================= DRAWER NAV ================= */
+  const currentIndex = filteredProducts.findIndex(
+    (p) => p.id === editingProduct?.id,
+  );
+  const prevProduct = filteredProducts[currentIndex - 1];
+  const nextProduct = filteredProducts[currentIndex + 1];
 
   /* ================= DELETE ================= */
   function confirmDelete(id, name) {
-    toast(
-      (t) => (
-        <Box>
-          <Typography fontWeight={600} mb={1}>
-            "{name}" delete ചെയ്യണോ?
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Button
-              color="error"
-              onClick={async () => {
-                toast.dismiss(t.id);
-                try {
-                  await apiDelete(`/api/products/${id}`);
-                  toast.success("Product deleted ✅");
-                  loadProducts();
-                } catch {
-                  toast.error("Delete failed ❌");
-                }
-              }}
-            >
-              Delete
-            </Button>
-            <Button onClick={() => toast.dismiss(t.id)}>Cancel</Button>
-          </Stack>
-        </Box>
-      ),
-      { duration: 6000 },
-    );
+    toast((t) => (
+      <Box>
+        <Typography fontWeight={700} mb={1}>
+          "{name}" delete cheyyano?
+        </Typography>
+        <Stack direction="row" spacing={1}>
+          <Button
+            color="error"
+            onClick={async () => {
+              toast.dismiss(t.id);
+              await apiDelete(`/api/products/${id}`);
+              toast.success("Deleted");
+              loadProducts();
+            }}
+          >
+            Delete
+          </Button>
+          <Button onClick={() => toast.dismiss(t.id)}>Cancel</Button>
+        </Stack>
+      </Box>
+    ));
   }
 
-  function bulkDelete() {
-    toast(
-      (t) => (
-        <Box>
-          <Typography fontWeight={600} mb={1}>
-            {selected.length} products delete ചെയ്യണോ?
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Button
-              color="error"
-              onClick={async () => {
-                toast.dismiss(t.id);
-                try {
-                  for (const id of selected) {
-                    await apiDelete(`/api/products/${id}`);
-                  }
-                  toast.success("Products deleted ✅");
-                  setSelected([]);
-                  loadProducts();
-                } catch {
-                  toast.error("Bulk delete failed ❌");
-                }
-              }}
-            >
-              Delete
-            </Button>
-            <Button onClick={() => toast.dismiss(t.id)}>Cancel</Button>
-          </Stack>
-        </Box>
-      ),
-      { duration: 7000 },
-    );
-  }
+  /* ================= ACTIVE FILTER CHIPS ================= */
+  const filterChips = [
+    search && { label: `Search: ${search}`, onDelete: () => setSearch("") },
+    category && {
+      label: "Category",
+      onDelete: () => setCategory(""),
+    },
+    imageFilter !== "all" && {
+      label: `Image: ${imageFilter}`,
+      onDelete: () => setImageFilter("all"),
+    },
+    stockFilter !== "all" && {
+      label: `Stock: ${stockFilter}`,
+      onDelete: () => setStockFilter("all"),
+    },
+  ].filter(Boolean);
 
   /* ================= UI ================= */
   return (
-    <Box maxWidth={1300} mx="auto">
-      {/* HEADER */}
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        justifyContent="space-between"
-        spacing={2}
-        mb={2}
+    <Box maxWidth={1400} mx="auto">
+      {/* ===== STICKY TOP BAR ===== */}
+      <Box
+        sx={{
+          position: "sticky",
+          top: 0,
+          zIndex: 20,
+          bgcolor: "#fff",
+          borderBottom: "1px solid #e5e7eb",
+          p: 1,
+        }}
       >
-        <Box>
-          <Typography variant="h5" fontWeight={700}>
-            Products ({products.length})
-          </Typography>
-          <Typography fontSize={13} color="text.secondary">
-            Manage your catalog
-          </Typography>
-        </Box>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <TextField
+            size="small"
+            placeholder="Search product…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            fullWidth
+          />
 
-        <Stack direction="row" spacing={1}>
+          <IconButton onClick={() => setFilterOpen(true)}>
+            <FilterListIcon />
+          </IconButton>
+
           <IconButton onClick={loadProducts}>
             <RefreshIcon />
           </IconButton>
+
           <Button
             startIcon={<AddIcon />}
             variant="contained"
@@ -207,88 +185,21 @@ export default function Products() {
               setDrawerOpen(true);
             }}
           >
-            Add Product
+            Add
           </Button>
         </Stack>
-      </Stack>
 
-      {/* FILTER BAR */}
-      <Card sx={{ p: 2, mb: 2 }}>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-          <TextField
-            placeholder="Search product..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            fullWidth
-          />
-
-          <Select
-            value={categoryFilter}
-            displayEmpty
-            onChange={(e) => setCategoryFilter(e.target.value)}
-          >
-            <MenuItem value="">All Categories</MenuItem>
-            {categories.map((c) => (
-              <MenuItem key={c.id} value={c.id}>
-                {c.name}
-              </MenuItem>
+        {/* Applied Filters */}
+        {filterChips.length > 0 && (
+          <Stack direction="row" spacing={1} mt={1} flexWrap="wrap">
+            {filterChips.map((c, i) => (
+              <Chip key={i} label={c.label} onDelete={c.onDelete} />
             ))}
-          </Select>
-
-          <ToggleButtonGroup
-            value={imageFilter}
-            exclusive
-            onChange={(e, v) => v && setImageFilter(v)}
-          >
-            <ToggleButton value="all">All</ToggleButton>
-            <ToggleButton value="with">
-              <ImageIcon fontSize="small" />
-            </ToggleButton>
-            <ToggleButton value="without">
-              <ImageNotSupportedIcon fontSize="small" />
-            </ToggleButton>
-          </ToggleButtonGroup>
-
-          <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-            <MenuItem value="name">Name</MenuItem>
-            <MenuItem value="price">Price</MenuItem>
-            <MenuItem value="stock">Stock</MenuItem>
-          </Select>
-
-          {!isMobile && (
-            <ToggleButtonGroup
-              value={viewMode}
-              exclusive
-              onChange={(e, v) => v && setViewMode(v)}
-            >
-              <ToggleButton value="list">
-                <ViewListIcon />
-              </ToggleButton>
-              <ToggleButton value="grid">
-                <ViewModuleIcon />
-              </ToggleButton>
-            </ToggleButtonGroup>
-          )}
-        </Stack>
-      </Card>
-
-      {/* BULK BAR */}
-      {selected.length > 0 && (
-        <Card sx={{ p: 1.5, mb: 2, bgcolor: "#fff7ed" }}>
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Typography fontWeight={600}>{selected.length} selected</Typography>
-            <Button
-              color="error"
-              startIcon={<DeleteOutlineIcon />}
-              onClick={bulkDelete}
-            >
-              Delete
-            </Button>
           </Stack>
-        </Card>
-      )}
+        )}
+      </Box>
 
-      {/* LIST / GRID */}
+      {/* ===== PRODUCT LIST ===== */}
       {loading ? (
         <Typography textAlign="center" py={4}>
           Loading…
@@ -297,21 +208,29 @@ export default function Products() {
         <Typography textAlign="center" py={4} color="text.secondary">
           No products found
         </Typography>
-      ) : effectiveView === "list" ? (
-        <Card>
+      ) : (
+        <Card sx={{ borderRadius: 0 }}>
           {filteredProducts.map((p) => (
             <Box
               key={p.id}
               sx={{
                 display: "flex",
                 alignItems: "center",
-                gap: 2,
-                p: 1.5,
+                gap: 1.5,
+                p: 1.2,
                 borderBottom: "1px solid #eee",
+                cursor: "pointer",
+                bgcolor:
+                  editingProduct?.id === p.id ? "#f0fdfa" : "transparent",
+              }}
+              onClick={() => {
+                setEditingProduct(p);
+                setDrawerOpen(true);
               }}
             >
               <Checkbox
                 checked={selected.includes(p.id)}
+                onClick={(e) => e.stopPropagation()}
                 onChange={(e) =>
                   setSelected(
                     e.target.checked
@@ -321,31 +240,17 @@ export default function Products() {
                 }
               />
 
-              <Box
-                sx={{
-                  width: 48,
-                  height: 48,
-                  bgcolor: "#f1f5f9",
-                  borderRadius: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                {p.images?.[0] ? (
+              <Box sx={{ width: 42, height: 42, bgcolor: "#f1f5f9" }}>
+                {p.images?.[0] && (
                   <img
                     src={p.images[0]}
                     alt=""
                     style={{
-                      maxWidth: "100%",
-                      maxHeight: "100%",
+                      width: "100%",
+                      height: "100%",
                       objectFit: "contain",
                     }}
                   />
-                ) : (
-                  <Typography fontSize={11} color="text.secondary">
-                    No Image
-                  </Typography>
                 )}
               </Box>
 
@@ -356,107 +261,116 @@ export default function Products() {
                 </Typography>
               </Box>
 
-              <Button
-                size="small"
-                onClick={() => {
-                  setEditingProduct(p);
-                  setDrawerOpen(true);
-                }}
-              >
-                Edit
-              </Button>
+              <Button size="small">Edit</Button>
 
               <IconButton
                 color="error"
-                onClick={() => confirmDelete(p.id, p.name)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  confirmDelete(p.id, p.name);
+                }}
               >
                 <DeleteOutlineIcon />
               </IconButton>
             </Box>
           ))}
         </Card>
-      ) : (
-        <Box
-          display="grid"
-          gridTemplateColumns="repeat(auto-fill,minmax(220px,1fr))"
-          gap={2}
-        >
-          {filteredProducts.map((p) => (
-            <Card key={p.id} sx={{ p: 1.5 }}>
-              <Box
-                sx={{
-                  height: 140,
-                  bgcolor: "#f8fafc",
-                  borderRadius: 2,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                {p.images?.[0] ? (
-                  <img
-                    src={p.images[0]}
-                    alt=""
-                    style={{
-                      maxWidth: "100%",
-                      maxHeight: "100%",
-                      objectFit: "contain",
-                    }}
-                  />
-                ) : (
-                  <Typography fontSize={13} color="text.secondary">
-                    No Image
-                  </Typography>
-                )}
-              </Box>
-
-              <Typography mt={1} fontWeight={600}>
-                {p.name}
-              </Typography>
-              <Typography fontSize={13}>₹{p.price}</Typography>
-
-              <Stack direction="row" spacing={1} mt={1}>
-                <Button
-                  size="small"
-                  fullWidth
-                  onClick={() => {
-                    setEditingProduct(p);
-                    setDrawerOpen(true);
-                  }}
-                >
-                  Edit
-                </Button>
-                <IconButton
-                  color="error"
-                  onClick={() => confirmDelete(p.id, p.name)}
-                >
-                  <DeleteOutlineIcon />
-                </IconButton>
-              </Stack>
-            </Card>
-          ))}
-        </Box>
       )}
 
-      {/* DRAWER */}
+      {/* ===== FILTER MODAL ===== */}
+      <Dialog open={filterOpen} onClose={() => setFilterOpen(false)} fullWidth>
+        <DialogTitle>Filters</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} mt={1}>
+            <Select
+              value={category}
+              displayEmpty
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              <MenuItem value="">All Categories</MenuItem>
+              {categories.map((c) => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.name}
+                </MenuItem>
+              ))}
+            </Select>
+
+            <Select
+              value={imageFilter}
+              onChange={(e) => setImageFilter(e.target.value)}
+            >
+              <MenuItem value="all">All images</MenuItem>
+              <MenuItem value="with">With image</MenuItem>
+              <MenuItem value="without">Without image</MenuItem>
+            </Select>
+
+            <Select
+              value={stockFilter}
+              onChange={(e) => setStockFilter(e.target.value)}
+            >
+              <MenuItem value="all">All stock</MenuItem>
+              <MenuItem value="in">In stock</MenuItem>
+              <MenuItem value="out">Out of stock</MenuItem>
+            </Select>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setCategory("");
+              setImageFilter("all");
+              setStockFilter("all");
+            }}
+          >
+            Reset
+          </Button>
+          <Button variant="contained" onClick={() => setFilterOpen(false)}>
+            Apply
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ===== DRAWER ===== */}
       <Drawer
         anchor="right"
         open={drawerOpen}
-        onClose={() => {
-          setDrawerOpen(false);
-          setEditingProduct(null);
-        }}
+        onClose={() => setDrawerOpen(false)}
         PaperProps={{ sx: { width: { xs: "100%", md: 520 } } }}
       >
+        {editingProduct && (
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            p={1}
+            borderBottom="1px solid #e5e7eb"
+          >
+            <IconButton
+              disabled={!prevProduct}
+              onClick={() => setEditingProduct(prevProduct)}
+            >
+              <ChevronLeftIcon />
+            </IconButton>
+
+            <Typography fontWeight={700} noWrap>
+              {editingProduct.name}
+            </Typography>
+
+            <IconButton
+              disabled={!nextProduct}
+              onClick={() => setEditingProduct(nextProduct)}
+            >
+              <ChevronRightIcon />
+            </IconButton>
+          </Stack>
+        )}
+
         <Box p={2}>
           <AdminProductForm
             editingProduct={editingProduct}
             categories={categories}
             products={products}
-            onSaved={() => {
-              setDrawerOpen(false);
-              loadProducts();
-            }}
+            onSaved={() => loadProducts()}
             onCancel={() => setDrawerOpen(false)}
           />
         </Box>

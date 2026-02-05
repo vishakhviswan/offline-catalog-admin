@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import {
   Box,
@@ -10,10 +10,14 @@ import {
   Typography,
   Stack,
   IconButton,
+  Divider,
+  Chip,
 } from "@mui/material";
+
 import AutorenewIcon from "@mui/icons-material/Autorenew";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import AddIcon from "@mui/icons-material/Add";
+import ImageIcon from "@mui/icons-material/Image";
 
 import { apiPost, apiPut } from "../api/api";
 import { uploadProductImage } from "../utils/uploadProductImage";
@@ -26,11 +30,8 @@ const UNIT_PRESETS = [
   { name: "liter", multiplier: 1 },
   { name: "ml", multiplier: 0.001 },
   { name: "meter", multiplier: 1 },
-  { name: "sqft", multiplier: 1 },
-  { name: "sqm", multiplier: 1 },
   { name: "dozen", multiplier: 12 },
   { name: "box", multiplier: 1 },
-  { name: "packet", multiplier: 1 },
 ];
 
 /* ================= HELPERS ================= */
@@ -56,13 +57,13 @@ export default function AdminProductForm({
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
 
-  const [units, setUnits] = useState([
-    { name: "pcs", multiplier: 1, isCustom: false },
-  ]);
+  const [units, setUnits] = useState([{ name: "pcs", multiplier: 1 }]);
 
   const [preview, setPreview] = useState("");
   const [imageFile, setImageFile] = useState(null);
+
   const [loading, setLoading] = useState(false);
+  const [touched, setTouched] = useState(false);
 
   /* ================= EDIT MODE ================= */
   useEffect(() => {
@@ -72,20 +73,27 @@ export default function AdminProductForm({
     setCategoryId(editingProduct.category_id || "");
     setPrice(editingProduct.price ?? "");
     setStock(editingProduct.stock ?? "");
-
-    if (editingProduct.units?.length) {
-      setUnits(
-        editingProduct.units.map((u) => ({
-          name: u.name,
-          multiplier: u.multiplier,
-          isCustom: !UNIT_PRESETS.some((p) => p.name === u.name),
-        })),
-      );
-    }
-
+    setUnits(
+      editingProduct.units?.length
+        ? editingProduct.units
+        : [{ name: "pcs", multiplier: 1 }],
+    );
     setPreview(editingProduct.images?.[0] || "");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    setTouched(false);
   }, [editingProduct]);
+
+  /* ================= VALIDATION ================= */
+  const nameError = touched && !name.trim();
+  const priceError = touched && (!price || Number(price) <= 0);
+
+  const duplicateName = useMemo(() => {
+    const normalized = name.trim().toLowerCase();
+    return products.find(
+      (p) =>
+        p.name?.trim().toLowerCase() === normalized &&
+        p.id !== editingProduct?.id,
+    );
+  }, [name, products, editingProduct]);
 
   /* ================= IMAGE ================= */
   function handleFile(e) {
@@ -93,26 +101,24 @@ export default function AdminProductForm({
     if (!file) return;
     setImageFile(file);
     setPreview(URL.createObjectURL(file));
+    setTouched(true);
     toast.success("Image selected");
   }
 
   /* ================= SAVE ================= */
   async function saveProduct(e) {
     e.preventDefault();
+    setTouched(true);
 
-    if (!name.trim()) return toast.error("Product name ആവശ്യമാണ്");
-    if (!price || Number(price) <= 0) return toast.error("Valid price നൽകണം");
+    if (nameError || priceError) {
+      toast.error("Required fields check ചെയ്യൂ");
+      return;
+    }
 
-    const normalized = name.trim().toLowerCase();
-    const duplicate = products.find(
-      (p) =>
-        p.name?.trim().toLowerCase() === normalized &&
-        p.id !== editingProduct?.id,
-    );
-    if (duplicate) return toast.error("ഈ product name ഇതിനകം ഉണ്ട്");
-
-    const validUnits = units.filter((u) => u.name && u.multiplier > 0);
-    if (!validUnits.length) return toast.error("At least one unit ആവശ്യമാണ്");
+    if (duplicateName) {
+      toast.error("ഈ product name ഇതിനകം ഉണ്ട്");
+      return;
+    }
 
     setLoading(true);
 
@@ -120,12 +126,7 @@ export default function AdminProductForm({
       let imageUrl = "";
 
       if (imageFile) {
-        try {
-          imageUrl = await uploadProductImage(imageFile);
-          toast.success("Image uploaded");
-        } catch {
-          toast.error("Image upload failed");
-        }
+        imageUrl = await uploadProductImage(imageFile);
       }
 
       const payload = {
@@ -134,10 +135,7 @@ export default function AdminProductForm({
         price: Number(price),
         stock: stock ? Number(stock) : 0,
         availability: Number(stock) > 0,
-        units: validUnits.map(({ name, multiplier }) => ({
-          name,
-          multiplier,
-        })),
+        units: units.map(({ name, multiplier }) => ({ name, multiplier })),
         images: imageUrl ? [imageUrl] : editingProduct?.images || [],
       };
 
@@ -157,22 +155,81 @@ export default function AdminProductForm({
 
   /* ================= UI ================= */
   return (
-    <Card sx={{ p: 3, maxWidth: 1000, mx: "auto" }}>
-      <form onSubmit={saveProduct}>
-        {/* TOP */}
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+    <Box pb={10}>
+      {/* IMAGE HERO */}
+      <Card sx={{ p: 2, mb: 3 }}>
+        <Typography fontWeight={700} mb={1}>
+          Product Image
+        </Typography>
+
+        <Box
+          onClick={() => document.getElementById("imgInput").click()}
+          sx={{
+            aspectRatio: "1/1",
+            border: "2px dashed",
+            borderColor: "primary.light",
+            borderRadius: 3,
+            overflow: "hidden",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            bgcolor: "#f8fafc",
+          }}
+        >
+          {preview ? (
+            <img
+              src={preview}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <Stack alignItems="center" spacing={1}>
+              <ImageIcon color="primary" />
+              <Typography fontSize={13} color="text.secondary">
+                1080 × 1080 recommended
+              </Typography>
+            </Stack>
+          )}
+          <input
+            hidden
+            id="imgInput"
+            type="file"
+            accept="image/*"
+            onChange={handleFile}
+          />
+        </Box>
+      </Card>
+
+      {/* BASIC INFO */}
+      <Card sx={{ p: 3 }}>
+        <Stack spacing={2}>
           <TextField
             label="Product Name *"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            error={nameError}
+            helperText={nameError && "Product name required"}
+            onChange={(e) => {
+              setName(e.target.value);
+              setTouched(true);
+            }}
             fullWidth
           />
+
+          {duplicateName && (
+            <Chip
+              color="warning"
+              label={`Similar product exists: ${duplicateName.name}`}
+            />
+          )}
 
           <Select
             value={categoryId}
             displayEmpty
-            onChange={(e) => setCategoryId(e.target.value)}
-            sx={{ minWidth: 180 }}
+            onChange={(e) => {
+              setCategoryId(e.target.value);
+              setTouched(true);
+            }}
           >
             <MenuItem value="">Category (optional)</MenuItem>
             {categories.map((c) => (
@@ -182,165 +239,127 @@ export default function AdminProductForm({
             ))}
           </Select>
 
-          <Box
-            onClick={() => document.getElementById("imgInput").click()}
-            sx={{
-              width: "100%",
-              aspectRatio: "1/1",
-              maxWidth: 240,
-              border: "2px dashed #cbd5e1",
-              borderRadius: 6,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              overflow: "hidden",
-            }}
-          >
-            {preview ? (
-              <img
-                src={preview}
-                alt=""
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
-              />
-            ) : (
-              <Typography fontSize={12} color="text.secondary">
-                Recommended: 1080x1080 (square)
-              </Typography>
-            )}
-            <input
-              hidden
-              id="imgInput"
-              type="file"
-              accept="image/*"
-              onChange={handleFile}
+          <Stack direction="row" spacing={2}>
+            <TextField
+              label="Price *"
+              type="number"
+              value={price}
+              error={priceError}
+              helperText={priceError && "Valid price required"}
+              onChange={(e) => {
+                setPrice(e.target.value);
+                setTouched(true);
+              }}
+              fullWidth
             />
-          </Box>
+            <TextField
+              label="Stock"
+              type="number"
+              value={stock}
+              onChange={(e) => {
+                setStock(e.target.value);
+                setTouched(true);
+              }}
+              fullWidth
+            />
+          </Stack>
         </Stack>
+      </Card>
 
-        {/* UNITS */}
-        <Typography mt={3} fontWeight={600}>
-          Units
+      {/* UNITS */}
+      <Card sx={{ p: 3, mt: 3 }}>
+        <Typography fontWeight={700} mb={1}>
+          Units (display order matters)
         </Typography>
 
-        <Stack spacing={1.5} mt={1}>
+        <Stack spacing={1.5}>
           {units.map((u, i) => (
-            <Box
-              key={i}
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                p: 1,
-                borderRadius: 2,
-                border: "1px solid #e5e7eb",
-                background: "#f9fafb",
-              }}
-            >
-              <Select
-                size="small"
-                value={u.isCustom ? "__custom__" : u.name}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const copy = [...units];
-                  if (val === "__custom__") {
-                    copy[i] = { name: "", multiplier: 1, isCustom: true };
-                  } else {
-                    const found = UNIT_PRESETS.find((p) => p.name === val);
-                    copy[i] = { ...found, isCustom: false };
-                  }
-                  setUnits(copy);
-                }}
-                sx={{ minWidth: 110 }}
-              >
-                {UNIT_PRESETS.map((p) => (
-                  <MenuItem key={p.name} value={p.name}>
-                    {p.name}
-                  </MenuItem>
-                ))}
-                <MenuItem value="__custom__">Custom…</MenuItem>
-              </Select>
-
-              {u.isCustom && (
-                <TextField
+            <Card key={i} variant="outlined" sx={{ p: 1.5 }}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Select
                   size="small"
-                  placeholder="Unit"
                   value={u.name}
                   onChange={(e) => {
                     const copy = [...units];
-                    copy[i].name = e.target.value;
+                    const found = UNIT_PRESETS.find(
+                      (p) => p.name === e.target.value,
+                    );
+                    copy[i] = found || copy[i];
                     setUnits(copy);
+                    setTouched(true);
                   }}
-                  sx={{ width: 120 }}
+                  sx={{ minWidth: 100 }}
+                >
+                  {UNIT_PRESETS.map((p) => (
+                    <MenuItem key={p.name} value={p.name}>
+                      {p.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+
+                <TextField
+                  size="small"
+                  type="number"
+                  value={u.multiplier}
+                  onChange={(e) => {
+                    const copy = [...units];
+                    copy[i].multiplier = Number(e.target.value);
+                    setUnits(copy);
+                    setTouched(true);
+                  }}
+                  sx={{ width: 90 }}
                 />
-              )}
 
-              <TextField
-                size="small"
-                type="number"
-                value={u.multiplier}
-                onChange={(e) => {
-                  const copy = [...units];
-                  copy[i].multiplier = Number(e.target.value);
-                  setUnits(copy);
-                }}
-                sx={{ width: 90 }}
-              />
+                {i === 0 && <Chip size="small" label="PRIMARY" />}
 
-              <IconButton onClick={() => setUnits(rotateUnit(units, i))}>
-                <AutorenewIcon fontSize="small" />
-              </IconButton>
+                <IconButton onClick={() => setUnits(rotateUnit(units, i))}>
+                  <AutorenewIcon fontSize="small" />
+                </IconButton>
 
-              <IconButton
-                color="error"
-                disabled={units.length === 1}
-                onClick={() => setUnits(units.filter((_, idx) => idx !== i))}
-              >
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-            </Box>
+                <IconButton
+                  color="error"
+                  disabled={units.length === 1}
+                  onClick={() => setUnits(units.filter((_, idx) => idx !== i))}
+                >
+                  <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
+              </Stack>
+            </Card>
           ))}
 
           <Button
             startIcon={<AddIcon />}
-            onClick={() =>
-              setUnits([
-                ...units,
-                { name: "pcs", multiplier: 1, isCustom: false },
-              ])
-            }
+            onClick={() => {
+              setUnits([...units, { name: "pcs", multiplier: 1 }]);
+              setTouched(true);
+            }}
           >
             Add Unit
           </Button>
         </Stack>
+      </Card>
 
-        {/* PRICE */}
-        <Stack direction={{ xs: "column", md: "row" }} spacing={2} mt={3}>
-          <TextField
-            label="Price *"
-            type="number"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            fullWidth
-          />
-          <TextField
-            label="Stock (optional)"
-            type="number"
-            value={stock}
-            onChange={(e) => setStock(e.target.value)}
-            fullWidth
-          />
-        </Stack>
-
-        {/* ACTIONS */}
-        <Stack direction="row" spacing={2} mt={4}>
+      {/* STICKY ACTION BAR */}
+      <Box
+        sx={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          borderTop: "1px solid #e5e7eb",
+          bgcolor: "#fff",
+          p: 2,
+          zIndex: 1200,
+        }}
+      >
+        <Stack direction="row" spacing={2}>
           <Button fullWidth variant="outlined" onClick={onCancel}>
             Cancel
           </Button>
           <Button
             fullWidth
             variant="contained"
-            type="submit"
+            onClick={saveProduct}
             disabled={loading}
           >
             {loading
@@ -350,7 +369,7 @@ export default function AdminProductForm({
                 : "Save Product"}
           </Button>
         </Stack>
-      </form>
-    </Card>
+      </Box>
+    </Box>
   );
 }
