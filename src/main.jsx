@@ -22,6 +22,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 /* ===========PWA SERVICE WORKER===========*/
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/offline-catalog-app/sw.js").catch(() => {});
+    navigator.serviceWorker.register("/offline-catalog-admin/sw.js").catch(() => {});
   });
 }
