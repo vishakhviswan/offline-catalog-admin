@@ -18,6 +18,7 @@ import {
   Select,
   MenuItem,
   useMediaQuery,
+  Skeleton,
 } from "@mui/material";
 
 import AddIcon from "@mui/icons-material/Add";
@@ -29,11 +30,14 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 
 import { apiGet, apiDelete } from "../api/api";
 import AdminProductForm from "../components/AdminProductForm";
+import BulkEditModal from "../components/BulkEditModal";
+import BulkEditEditor from "../components/BulkEditEditor";
 
 export default function Products() {
   /* ================= DATA ================= */
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(false);
 
   /* ================= UI ================= */
@@ -48,8 +52,13 @@ export default function Products() {
   const [stockFilter, setStockFilter] = useState("all"); // all | in | out
 
   const [selected, setSelected] = useState([]);
+  const [formLoading, setFormLoading] = useState(false);
 
   const isMobile = useMediaQuery("(max-width:768px)");
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [bulkEditorOpen, setBulkEditorOpen] = useState(false);
+  const [bulkFields, setBulkFields] = useState([]);
+ 
 
   /* ================= LOAD ================= */
   async function loadProducts() {
@@ -68,9 +77,18 @@ export default function Products() {
     setCategories((await apiGet("/api/categories")) || []);
   }
 
+  async function loadVendors() {
+    try {
+      setVendors((await apiGet("/api/vendors")) || []);
+    } catch {
+      toast.error("Vendors load failed");
+    }
+  }
+
   useEffect(() => {
     loadProducts();
     loadCategories();
+    loadVendors();
   }, []);
 
   /* ================= FILTER LOGIC ================= */
@@ -181,11 +199,28 @@ export default function Products() {
             startIcon={<AddIcon />}
             variant="contained"
             onClick={() => {
+              setFormLoading(true);
               setEditingProduct(null);
               setDrawerOpen(true);
+              setTimeout(() => {
+                setFormLoading(false);
+              }, 80);
             }}
           >
             Add
+          </Button>
+          <Button
+            variant="outlined"
+            disabled={selected.length === 0}
+            onClick={() => {
+              if (selected.length === 0) {
+                toast.error("Select at least one Product");
+                return;
+              }
+              setBulkModalOpen(true);
+            }}
+          >
+            Bulk Edit
           </Button>
         </Stack>
 
@@ -223,10 +258,6 @@ export default function Products() {
                 bgcolor:
                   editingProduct?.id === p.id ? "#f0fdfa" : "transparent",
               }}
-              onClick={() => {
-                setEditingProduct(p);
-                setDrawerOpen(true);
-              }}
             >
               <Checkbox
                 checked={selected.includes(p.id)}
@@ -261,7 +292,20 @@ export default function Products() {
                 </Typography>
               </Box>
 
-              <Button size="small">Edit</Button>
+              <Button
+                size="small"
+                onClick={() => {
+                  setFormLoading(true);
+                  setDrawerOpen(true);
+
+                  setTimeout(() => {
+                    setEditingProduct(p);
+                    setFormLoading(false);
+                  }, 80);
+                }}
+              >
+                Edit
+              </Button>
 
               <IconButton
                 color="error"
@@ -334,9 +378,12 @@ export default function Products() {
       <Drawer
         anchor="right"
         open={drawerOpen}
+        keepMounted
+        transitionDuration={250}
         onClose={() => setDrawerOpen(false)}
         PaperProps={{ sx: { width: { xs: "100%", md: 520 } } }}
       >
+        {/* TOP NAV BAR */}
         {editingProduct && (
           <Stack
             direction="row"
@@ -347,7 +394,13 @@ export default function Products() {
           >
             <IconButton
               disabled={!prevProduct}
-              onClick={() => setEditingProduct(prevProduct)}
+              onClick={() => {
+                setFormLoading(true);
+                setTimeout(() => {
+                  setEditingProduct(prevProduct);
+                  setFormLoading(false);
+                }, 80);
+              }}
             >
               <ChevronLeftIcon />
             </IconButton>
@@ -358,23 +411,75 @@ export default function Products() {
 
             <IconButton
               disabled={!nextProduct}
-              onClick={() => setEditingProduct(nextProduct)}
+              onClick={() => {
+                setFormLoading(true);
+                setTimeout(() => {
+                  setEditingProduct(nextProduct);
+                  setFormLoading(false);
+                }, 80);
+              }}
             >
               <ChevronRightIcon />
             </IconButton>
           </Stack>
         )}
 
+        {/* CONTENT */}
         <Box p={2}>
-          <AdminProductForm
-            editingProduct={editingProduct}
-            categories={categories}
-            products={products}
-            onSaved={() => loadProducts()}
-            onCancel={() => setDrawerOpen(false)}
-          />
+          {formLoading ? (
+            <Box
+              height="70vh"
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Stack spacing={2}>
+                <Skeleton variant="rectangular" height={200} />
+                <Skeleton height={40} />
+                <Skeleton height={40} />
+                <Skeleton height={40} />
+                <Skeleton height={120} />
+                <Skeleton height={50} />
+              </Stack>
+            </Box>
+          ) : (
+            <AdminProductForm
+              key={editingProduct?.id || "new"}
+              editingProduct={editingProduct}
+              categories={categories}
+              products={products}
+              onSaved={() => loadProducts()}
+              onCancel={() => setDrawerOpen(false)}
+            />
+          )}
         </Box>
       </Drawer>
+
+      <BulkEditEditor
+        open={bulkEditorOpen}
+        productIds={selected}
+        fields={bulkFields}
+        categories={categories}
+        vendors={vendors}
+        onClose={() => setBulkEditorOpen(false)}
+        onUpdated={() => {
+          setBulkEditorOpen(false);
+          loadProducts();
+          setSelected([]);
+        }}
+      />
+      <BulkEditModal
+        open={bulkModalOpen}
+        selectedCount={selected.length}
+        onClose={() => setBulkModalOpen(false)}
+        onContinue={(fields) => {
+          setBulkModalOpen(false);
+          setBulkFields(fields);
+          setBulkEditorOpen(true);
+          console.log("Selected fields:", fields);
+          // Next: open bulk editor page
+        }}
+      />
     </Box>
   );
 }

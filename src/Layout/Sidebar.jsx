@@ -7,6 +7,8 @@ import {
   MdShoppingCart,
   MdListAlt,
   MdAddCircleOutline,
+  MdSettings,
+  MdBusiness,
 } from "react-icons/md";
 
 const menu = [
@@ -14,6 +16,8 @@ const menu = [
   { id: "products", label: "Products", icon: <MdInventory size={20} /> },
   { id: "categories", label: "Categories", icon: <MdCategory size={20} /> },
   { id: "customers", label: "Customers", icon: <MdPeople size={20} /> },
+  { id: "vendors", label: "Vendors", icon: <MdBusiness size={20} /> },
+  { id: "settings", label: "settings", icon: <MdSettings size={20} /> },
 ];
 
 const ordersMenu = [

@@ -8,13 +8,32 @@ import Categories from "./pages/Categories";
 import Customers from "./pages/Customers";
 import OrdersList from "./pages/OrdersList";
 import CreateOrders from "./pages/CreateOrders";
+import AdminSettings from "./pages/AdminSettings";
+
+import { SettingsProvider } from "./context/SettingsContext";
+import Vendors from "./pages/Vendors";
+
+/* ================= ROOT ================= */
 
 export default function App() {
+  return (
+    <SettingsProvider>
+      <MainApp />
+    </SettingsProvider>
+  );
+}
+
+/* ================= MAIN APP ================= */
+
+function MainApp() {
   const [page, setPage] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   function renderPage() {
     switch (page) {
+      case "settings":
+        return <AdminSettings />;
+
       case "dashboard":
         return <Dashboard />;
 
@@ -27,7 +46,9 @@ export default function App() {
       case "customers":
         return <Customers />;
 
-      /* ===== ORDERS ===== */
+      case "vendors":
+        return <Vendors/>
+
       case "orders-list":
         return <OrdersList />;
 

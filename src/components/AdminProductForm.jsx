@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import {
   Box,
@@ -11,7 +11,6 @@ import {
   Stack,
   IconButton,
   Divider,
-  Chip,
 } from "@mui/material";
 
 import AutorenewIcon from "@mui/icons-material/Autorenew";
@@ -19,22 +18,19 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import AddIcon from "@mui/icons-material/Add";
 import ImageIcon from "@mui/icons-material/Image";
 
-import { apiPost, apiPut } from "../api/api";
+import { apiGet, apiPost, apiPut } from "../api/api";
 import { uploadProductImage } from "../utils/uploadProductImage";
+import { useSettings } from "../context/SettingsContext";
 
 /* ================= UNIT PRESETS ================= */
 const UNIT_PRESETS = [
   { name: "pcs", multiplier: 1 },
   { name: "kg", multiplier: 1 },
-  { name: "gram", multiplier: 0.001 },
   { name: "liter", multiplier: 1 },
-  { name: "ml", multiplier: 0.001 },
-  { name: "meter", multiplier: 1 },
   { name: "dozen", multiplier: 12 },
   { name: "box", multiplier: 1 },
 ];
 
-/* ================= HELPERS ================= */
 function rotateUnit(list, index) {
   const copy = [...list];
   const [item] = copy.splice(index, 1);
@@ -47,14 +43,21 @@ function rotateUnit(list, index) {
 export default function AdminProductForm({
   editingProduct,
   categories = [],
-  products = [],
   onSaved,
   onCancel,
 }) {
+  const { settings } = useSettings();
+
   /* ================= STATE ================= */
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const [price, setPrice] = useState("");
+  const [vendorId, setVendorId] = useState("");
+
+  const [purchaseRate, setPurchaseRate] = useState("");
+  const [margin, setMargin] = useState("");
+  const [salesRate, setSalesRate] = useState("");
+  const [mrp, setMrp] = useState("");
   const [stock, setStock] = useState("");
 
   const [units, setUnits] = useState([{ name: "pcs", multiplier: 1 }]);
@@ -63,62 +66,77 @@ export default function AdminProductForm({
   const [imageFile, setImageFile] = useState(null);
 
   const [loading, setLoading] = useState(false);
-  const [touched, setTouched] = useState(false);
+  const [vendors, setVendors] = useState([]);
+
+  /* ================= LOAD VENDORS ================= */
+  useEffect(() => {
+    async function loadVendors() {
+      try {
+        const data = await apiGet("/api/vendors");
+        setVendors(data || []);
+      } catch {
+        toast.error("Failed to load vendors");
+      }
+    }
+    loadVendors();
+  }, []);
 
   /* ================= EDIT MODE ================= */
   useEffect(() => {
     if (!editingProduct) return;
 
     setName(editingProduct.name || "");
+    setDescription(editingProduct.description || "");
     setCategoryId(editingProduct.category_id || "");
-    setPrice(editingProduct.price ?? "");
-    setStock(editingProduct.stock ?? "");
+    setVendorId(editingProduct.vendor_id || "");
+
+    setPurchaseRate(editingProduct.purchase_rate || "");
+    setMargin(editingProduct.margin_percentage || "");
+    setSalesRate(editingProduct.price || "");
+    setMrp(editingProduct.mrp || "");
+    setStock(editingProduct.stock || "");
+
     setUnits(
       editingProduct.units?.length
         ? editingProduct.units
         : [{ name: "pcs", multiplier: 1 }],
     );
+
     setPreview(editingProduct.images?.[0] || "");
-    setTouched(false);
   }, [editingProduct]);
 
-  /* ================= VALIDATION ================= */
-  const nameError = touched && !name.trim();
-  const priceError = touched && (!price || Number(price) <= 0);
+  /* ================= AUTO CALC ================= */
+  function handlePurchaseChange(val) {
+    setPurchaseRate(val);
+    if (margin) {
+      const s = Number(val) * (1 + Number(margin) / 100);
+      setSalesRate(s.toFixed(2));
+    }
+  }
 
-  const duplicateName = useMemo(() => {
-    const normalized = name.trim().toLowerCase();
-    return products.find(
-      (p) =>
-        p.name?.trim().toLowerCase() === normalized &&
-        p.id !== editingProduct?.id,
-    );
-  }, [name, products, editingProduct]);
+  function handleMarginChange(val) {
+    setMargin(val);
+    if (purchaseRate) {
+      const s = Number(purchaseRate) * (1 + Number(val) / 100);
+      setSalesRate(s.toFixed(2));
+    }
+  }
 
-  /* ================= IMAGE ================= */
-  function handleFile(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    setImageFile(file);
-    setPreview(URL.createObjectURL(file));
-    setTouched(true);
-    toast.success("Image selected");
+  function handleSalesChange(val) {
+    setSalesRate(val);
+    if (purchaseRate && Number(purchaseRate) > 0) {
+      const m =
+        ((Number(val) - Number(purchaseRate)) / Number(purchaseRate)) * 100;
+      setMargin(m.toFixed(2));
+    }
   }
 
   /* ================= SAVE ================= */
   async function saveProduct(e) {
     e.preventDefault();
-    setTouched(true);
 
-    if (nameError || priceError) {
-      toast.error("Required fields check ചെയ്യൂ");
-      return;
-    }
-
-    if (duplicateName) {
-      toast.error("ഈ product name ഇതിനകം ഉണ്ട്");
-      return;
-    }
+    if (!name.trim()) return toast.error("Product name required");
+    if (!salesRate) return toast.error("Sales rate required");
 
     setLoading(true);
 
@@ -131,22 +149,28 @@ export default function AdminProductForm({
 
       const payload = {
         name: name.trim(),
+        description,
         category_id: categoryId || null,
-        price: Number(price),
-        stock: stock ? Number(stock) : 0,
+        vendor_id: vendorId || null,
+        purchase_rate: Number(purchaseRate) || 0,
+        margin_percentage: Number(margin) || 0,
+        price: Number(salesRate),
+        mrp: Number(mrp) || null,
+        stock: Number(stock) || 0,
         availability: Number(stock) > 0,
-        units: units.map(({ name, multiplier }) => ({ name, multiplier })),
+        units,
         images: imageUrl ? [imageUrl] : editingProduct?.images || [],
       };
 
-      editingProduct
-        ? await apiPut(`/api/products/${editingProduct.id}`, payload)
-        : await apiPost("/api/products", payload);
+      if (editingProduct) {
+        await apiPut(`/api/products/${editingProduct.id}`, payload);
+      } else {
+        await apiPost("/api/products", payload);
+      }
 
-      toast.success(editingProduct ? "Product updated ✅" : "Product added ✅");
+      toast.success("Saved successfully ✅");
       onSaved?.();
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error("Save failed ❌");
     } finally {
       setLoading(false);
@@ -154,18 +178,20 @@ export default function AdminProductForm({
   }
 
   /* ================= UI ================= */
+
   return (
-    <Box pb={10}>
-      {/* IMAGE HERO */}
+    <Box pb={12}>
+      {/* IMAGE */}
       <Card sx={{ p: 2, mb: 3 }}>
         <Typography fontWeight={700} mb={1}>
-          Product Image
+          Product Image (1080×1080)
         </Typography>
 
         <Box
           onClick={() => document.getElementById("imgInput").click()}
           sx={{
-            aspectRatio: "1/1",
+            width: 240,
+            height: 240,
             border: "2px dashed",
             borderColor: "primary.light",
             borderRadius: 3,
@@ -184,11 +210,9 @@ export default function AdminProductForm({
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
           ) : (
-            <Stack alignItems="center" spacing={1}>
+            <Stack alignItems="center">
               <ImageIcon color="primary" />
-              <Typography fontSize={13} color="text.secondary">
-                1080 × 1080 recommended
-              </Typography>
+              <Typography fontSize={12}>Click to upload</Typography>
             </Stack>
           )}
           <input
@@ -196,7 +220,12 @@ export default function AdminProductForm({
             id="imgInput"
             type="file"
             accept="image/*"
-            onChange={handleFile}
+            onChange={(e) => {
+              const file = e.target.files[0];
+              if (!file) return;
+              setImageFile(file);
+              setPreview(URL.createObjectURL(file));
+            }}
           />
         </Box>
       </Card>
@@ -205,151 +234,173 @@ export default function AdminProductForm({
       <Card sx={{ p: 3 }}>
         <Stack spacing={2}>
           <TextField
-            label="Product Name *"
+            label="Product Name"
             value={name}
-            error={nameError}
-            helperText={nameError && "Product name required"}
-            onChange={(e) => {
-              setName(e.target.value);
-              setTouched(true);
-            }}
+            onChange={(e) => setName(e.target.value)}
             fullWidth
           />
 
-          {duplicateName && (
-            <Chip
-              color="warning"
-              label={`Similar product exists: ${duplicateName.name}`}
-            />
-          )}
+          <TextField
+            label="Description"
+            multiline
+            minRows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            fullWidth
+          />
 
-          <Select
-            value={categoryId}
-            displayEmpty
-            onChange={(e) => {
-              setCategoryId(e.target.value);
-              setTouched(true);
-            }}
-          >
-            <MenuItem value="">Category (optional)</MenuItem>
-            {categories.map((c) => (
-              <MenuItem key={c.id} value={c.id}>
-                {c.name}
-              </MenuItem>
-            ))}
-          </Select>
+          <Stack direction="row" spacing={2}>
+            <Select
+              fullWidth
+              value={categoryId}
+              displayEmpty
+              onChange={(e) => setCategoryId(e.target.value)}
+            >
+              <MenuItem value="">Select Category</MenuItem>
+              {categories.map((c) => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.name}
+                </MenuItem>
+              ))}
+            </Select>
+
+            <Select
+              fullWidth
+              value={vendorId}
+              displayEmpty
+              onChange={(e) => setVendorId(e.target.value)}
+            >
+              <MenuItem value="">Preferred Vendor</MenuItem>
+              {vendors.map((v) => (
+                <MenuItem key={v.id} value={v.id}>
+                  {v.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </Stack>
 
           <Stack direction="row" spacing={2}>
             <TextField
-              label="Price *"
+              label="Purchase Rate"
               type="number"
-              value={price}
-              error={priceError}
-              helperText={priceError && "Valid price required"}
-              onChange={(e) => {
-                setPrice(e.target.value);
-                setTouched(true);
-              }}
+              value={purchaseRate}
+              onChange={(e) => handlePurchaseChange(e.target.value)}
               fullWidth
             />
+
             <TextField
-              label="Stock"
+              label="Margin (%)"
               type="number"
-              value={stock}
-              onChange={(e) => {
-                setStock(e.target.value);
-                setTouched(true);
-              }}
+              value={margin}
+              onChange={(e) => handleMarginChange(e.target.value)}
               fullWidth
             />
+
+            <TextField
+              label="Sales Rate"
+              type="number"
+              value={salesRate}
+              onChange={(e) => handleSalesChange(e.target.value)}
+              fullWidth
+            />
+          </Stack>
+
+          <Stack direction="row" spacing={2}>
+            <TextField
+              label="MRP"
+              type="number"
+              value={mrp}
+              onChange={(e) => setMrp(e.target.value)}
+              fullWidth
+            />
+
+            {settings?.product_features?.enable_stock && (
+              <TextField
+                label="Stock"
+                type="number"
+                value={stock}
+                onChange={(e) => setStock(e.target.value)}
+                fullWidth
+              />
+            )}
           </Stack>
         </Stack>
       </Card>
 
-      {/* UNITS */}
+      {/* ================= UNITS SECTION ================= */}
       <Card sx={{ p: 3, mt: 3 }}>
-        <Typography fontWeight={700} mb={1}>
-          Units (display order matters)
+        <Typography fontWeight={700} mb={2}>
+          Units
         </Typography>
 
         <Stack spacing={1.5}>
           {units.map((u, i) => (
-            <Card key={i} variant="outlined" sx={{ p: 1.5 }}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Select
-                  size="small"
-                  value={u.name}
-                  onChange={(e) => {
-                    const copy = [...units];
-                    const found = UNIT_PRESETS.find(
-                      (p) => p.name === e.target.value,
-                    );
-                    copy[i] = found || copy[i];
-                    setUnits(copy);
-                    setTouched(true);
-                  }}
-                  sx={{ minWidth: 100 }}
-                >
-                  {UNIT_PRESETS.map((p) => (
-                    <MenuItem key={p.name} value={p.name}>
-                      {p.name}
-                    </MenuItem>
-                  ))}
-                </Select>
+            <Stack direction="row" spacing={1} key={i} alignItems="center">
+              <Select
+                value={u.name}
+                onChange={(e) => {
+                  const copy = [...units];
+                  const found = UNIT_PRESETS.find(
+                    (p) => p.name === e.target.value,
+                  );
+                  copy[i] = found || copy[i];
+                  setUnits(copy);
+                }}
+                sx={{ width: 120 }}
+              >
+                {UNIT_PRESETS.map((p) => (
+                  <MenuItem key={p.name} value={p.name}>
+                    {p.name}
+                  </MenuItem>
+                ))}
+              </Select>
 
-                <TextField
-                  size="small"
-                  type="number"
-                  value={u.multiplier}
-                  onChange={(e) => {
-                    const copy = [...units];
-                    copy[i].multiplier = Number(e.target.value);
-                    setUnits(copy);
-                    setTouched(true);
-                  }}
-                  sx={{ width: 90 }}
-                />
+              <TextField
+                type="number"
+                size="small"
+                label="Multiplier"
+                value={u.multiplier}
+                onChange={(e) => {
+                  const copy = [...units];
+                  copy[i].multiplier = Number(e.target.value);
+                  setUnits(copy);
+                }}
+                sx={{ width: 120 }}
+              />
 
-                {i === 0 && <Chip size="small" label="PRIMARY" />}
+              <IconButton onClick={() => setUnits(rotateUnit(units, i))}>
+                <AutorenewIcon />
+              </IconButton>
 
-                <IconButton onClick={() => setUnits(rotateUnit(units, i))}>
-                  <AutorenewIcon fontSize="small" />
-                </IconButton>
-
-                <IconButton
-                  color="error"
-                  disabled={units.length === 1}
-                  onClick={() => setUnits(units.filter((_, idx) => idx !== i))}
-                >
-                  <DeleteOutlineIcon fontSize="small" />
-                </IconButton>
-              </Stack>
-            </Card>
+              <IconButton
+                color="error"
+                disabled={units.length === 1}
+                onClick={() => setUnits(units.filter((_, idx) => idx !== i))}
+              >
+                <DeleteOutlineIcon />
+              </IconButton>
+            </Stack>
           ))}
 
           <Button
             startIcon={<AddIcon />}
-            onClick={() => {
-              setUnits([...units, { name: "pcs", multiplier: 1 }]);
-              setTouched(true);
-            }}
+            onClick={() => setUnits([...units, { name: "pcs", multiplier: 1 }])}
           >
             Add Unit
           </Button>
         </Stack>
       </Card>
 
-      {/* STICKY ACTION BAR */}
+      {/* ACTION BAR */}
       <Box
         sx={{
           position: "fixed",
           bottom: 0,
           left: 0,
           right: 0,
-          borderTop: "1px solid #e5e7eb",
           bgcolor: "#fff",
+          borderTop: "1px solid #e5e7eb",
           p: 2,
-          zIndex: 1200,
         }}
       >
         <Stack direction="row" spacing={2}>
@@ -362,11 +413,7 @@ export default function AdminProductForm({
             onClick={saveProduct}
             disabled={loading}
           >
-            {loading
-              ? "Saving..."
-              : editingProduct
-                ? "Update Product"
-                : "Save Product"}
+            {loading ? "Saving..." : "Save Product"}
           </Button>
         </Stack>
       </Box>
