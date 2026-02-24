@@ -12,6 +12,7 @@ import AdminSettings from "./pages/AdminSettings";
 
 import { SettingsProvider } from "./context/SettingsContext";
 import Vendors from "./pages/Vendors";
+import SalesImport from "./pages/SalesImport";
 
 /* ================= ROOT ================= */
 
@@ -47,7 +48,7 @@ function MainApp() {
         return <Customers />;
 
       case "vendors":
-        return <Vendors/>
+        return <Vendors />;
 
       case "orders-list":
         return <OrdersList />;
@@ -59,6 +60,10 @@ function MainApp() {
             onSaved={() => setPage("orders-list")}
           />
         );
+
+      case "sales-import":
+        return <SalesImport />;
+      
 
       default:
         return <Dashboard />;

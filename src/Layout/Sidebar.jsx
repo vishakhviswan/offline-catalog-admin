@@ -31,6 +31,10 @@ const ordersMenu = [
     label: "Create Order",
     icon: <MdAddCircleOutline size={20} />,
   },
+  {
+    label: "Sales Import",
+      id: "sales-import",
+  },
 ];
 
 export default function Sidebar({ page, setPage, open, setOpen }) {
