@@ -1,6 +1,5 @@
 // src/api/api.js
-const API_BASE = "https://offline-catalog-backend-production.up.railway.app";
-
+const API_BASE = "https://offline-catalog-backend.onrender.com";
 export async function apiGet(path) {
   const res = await fetch(`${API_BASE}${path}`);
   return res.json();

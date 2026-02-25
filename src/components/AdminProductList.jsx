@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { apiDelete } from "../api/api";
 
-const API_BASE = "https://offline-catalog-backend-production.up.railway.app";
+const API_BASE = "https://offline-catalog-backend.onrender.com";
 
 export default function AdminProductList({
   products = [],
