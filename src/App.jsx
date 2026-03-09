@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import Sidebar from "./Layout/Sidebar";
 
@@ -17,6 +17,17 @@ import { SettingsProvider } from "./context/SettingsContext";
 import Vendors from "./pages/Vendors";
 import SalesImport from "./pages/SalesImport";
 
+const SALESMAN_AUTH_KEY = "salesman_auth_v1";
+
+function hasSalesmanSession() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(SALESMAN_AUTH_KEY) || "null");
+    return !!(parsed?.mobile && parsed?.name);
+  } catch {
+    return false;
+  }
+}
+
 /* ================= ROOT ================= */
 
 export default function App() {
@@ -32,6 +43,15 @@ export default function App() {
 function MainApp() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!hasSalesmanSession()) return;
+    if (location.pathname === "/salesman") return;
+    navigate("/salesman", { replace: true });
+  }, [location.pathname, navigate]);
+
+  const homePath = hasSalesmanSession() ? "/salesman" : "/dashboard";
 
   return (
     <div style={layout}>
@@ -48,7 +68,7 @@ function MainApp() {
 
         <div style={{ padding: 20 }}>
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<Navigate to={homePath} replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/products" element={<Products />} />
             <Route path="/categories" element={<Categories />} />
@@ -68,7 +88,7 @@ function MainApp() {
               }
             />
             <Route path="/sales-import" element={<SalesImport />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            <Route path="*" element={<Navigate to={homePath} replace />} />
           </Routes>
         </div>
       </div>

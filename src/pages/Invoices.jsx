@@ -60,7 +60,11 @@ function formatDate(value) {
   if (!value) return "-";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString();
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 }
 
 export default function Invoices() {
@@ -143,7 +147,9 @@ export default function Invoices() {
       const direction = sortDir === "asc" ? 1 : -1;
 
       if (sortKey === "total_amount") {
-        return (toNumber(a.total_amount) - toNumber(b.total_amount)) * direction;
+        return (
+          (toNumber(a.total_amount) - toNumber(b.total_amount)) * direction
+        );
       }
 
       const leftRaw = a[sortKey] ?? "";
@@ -226,9 +232,7 @@ export default function Invoices() {
       }
 
       toast.success(
-        isBulk
-          ? `${invoiceIds.length} invoices deleted`
-          : "Invoice deleted",
+        isBulk ? `${invoiceIds.length} invoices deleted` : "Invoice deleted",
       );
     } catch (error) {
       toast.error(error?.message || "Delete failed");
@@ -241,7 +245,8 @@ export default function Invoices() {
     selectedIds.includes(inv.id),
   ).length;
   const allFilteredSelected =
-    filteredInvoices.length > 0 && selectedInFiltered === filteredInvoices.length;
+    filteredInvoices.length > 0 &&
+    selectedInFiltered === filteredInvoices.length;
   const someFilteredSelected =
     selectedInFiltered > 0 && selectedInFiltered < filteredInvoices.length;
 
@@ -256,14 +261,23 @@ export default function Invoices() {
         <Typography variant="h5" fontWeight={700}>
           Invoices
         </Typography>
-        <Button startIcon={<RefreshIcon />} onClick={loadInvoices} disabled={loading}>
+        <Button
+          startIcon={<RefreshIcon />}
+          onClick={loadInvoices}
+          disabled={loading}
+        >
           Refresh
         </Button>
       </Stack>
 
       {selectedIds.length > 0 && (
         <Card sx={{ p: 1.5, mb: 2, background: "#fff7ed" }}>
-          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            flexWrap="wrap"
+          >
             <Typography fontWeight={600}>
               {selectedIds.length} selected
             </Typography>
@@ -280,7 +294,11 @@ export default function Invoices() {
       )}
 
       <Card sx={{ p: 1.5, mb: 2 }}>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={1} flexWrap="wrap">
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          spacing={1}
+          flexWrap="wrap"
+        >
           <TextField
             size="small"
             placeholder="Search invoice no / customer"
@@ -365,7 +383,9 @@ export default function Invoices() {
                       indeterminate={someFilteredSelected}
                       onChange={(e) => {
                         const checked = e.target.checked;
-                        const filteredIds = filteredInvoices.map((inv) => inv.id);
+                        const filteredIds = filteredInvoices.map(
+                          (inv) => inv.id,
+                        );
 
                         if (checked) {
                           setSelectedIds((prev) => [
@@ -415,9 +435,15 @@ export default function Invoices() {
                     </TableCell>
                     <TableCell>{inv.invoice_no || "-"}</TableCell>
                     <TableCell>{inv.customer_name || "-"}</TableCell>
-                    <TableCell>{formatDate(inv.invoice_date || inv.created_at)}</TableCell>
                     <TableCell>
-                      {inv.source ? <Chip size="small" label={inv.source} /> : "-"}
+                      {formatDate(inv.invoice_date || inv.created_at)}
+                    </TableCell>
+                    <TableCell>
+                      {inv.source ? (
+                        <Chip size="small" label={inv.source} />
+                      ) : (
+                        "-"
+                      )}
                     </TableCell>
                     <TableCell align="right">
                       {toNumber(inv.total_amount).toFixed(2)}
@@ -475,7 +501,9 @@ export default function Invoices() {
               </Typography>
               <Typography>
                 <b>Invoice Date:</b>{" "}
-                {formatDate(activeInvoice.invoice_date || activeInvoice.created_at)}
+                {formatDate(
+                  activeInvoice.invoice_date || activeInvoice.created_at,
+                )}
               </Typography>
               <Typography>
                 <b>Source:</b> {activeInvoice.source || "-"}
@@ -506,7 +534,9 @@ export default function Invoices() {
                       {activeItems.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>{item.product_name || "-"}</TableCell>
-                          <TableCell align="right">{toNumber(item.qty)}</TableCell>
+                          <TableCell align="right">
+                            {toNumber(item.qty)}
+                          </TableCell>
                           <TableCell>{item.unit || "-"}</TableCell>
                           <TableCell align="right">
                             {toNumber(item.price).toFixed(2)}

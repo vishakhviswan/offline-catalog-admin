@@ -43,6 +43,7 @@ export default function ReportsSection({
   reportPaymentTotals,
   reportSalesReturnTotal,
   onDownloadPdf,
+  onShareWhatsapp,
 }) {
   return (
     <Stack spacing={1.5}>
@@ -86,7 +87,9 @@ export default function ReportsSection({
             >
               <MenuItem value="sales">Sales Report</MenuItem>
               <MenuItem value="payment">Payment Report</MenuItem>
-              <MenuItem value="sales_collection">Sales & Collection Report</MenuItem>
+              <MenuItem value="sales_collection">
+                Sales & Collection Report
+              </MenuItem>
               <MenuItem value="sales_return">Sales Return Report</MenuItem>
             </Select>
             <Select
@@ -133,6 +136,21 @@ export default function ReportsSection({
             <Button variant="contained" onClick={onDownloadPdf}>
               Download PDF
             </Button>
+            <Button
+              variant="outlined"
+              onClick={onShareWhatsapp}
+              sx={{
+                backgroundColor: "#25D366",
+                color: "white",
+                borderColor: "#25D366",
+                "&:hover": {
+                  backgroundColor: "#128C7E",
+                  borderColor: "#128C7E",
+                },
+              }}
+            >
+              📱 Share PDF via WhatsApp
+            </Button>
           </Stack>
 
           {reportCustomMissing && (
@@ -142,29 +160,77 @@ export default function ReportsSection({
           )}
 
           {isPaymentReport ? (
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} flexWrap="wrap" useFlexGap>
-              <Chip label={`Rows: ${reportPaymentRows.length}`} color="primary" />
-              <Chip label={`Total: ${money(reportPaymentTotals.total)}`} color="success" />
-              <Chip label={`Cash: ${money(reportPaymentTotals.cash)}`} variant="outlined" />
-              <Chip label={`Cheque: ${money(reportPaymentTotals.cheque)}`} variant="outlined" />
-              <Chip label={`UPI: ${money(reportPaymentTotals.upi)}`} variant="outlined" />
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1}
+              flexWrap="wrap"
+              useFlexGap
+            >
+              <Chip
+                label={`Rows: ${reportPaymentRows.length}`}
+                color="primary"
+              />
+              <Chip
+                label={`Total: ${money(reportPaymentTotals.total)}`}
+                color="success"
+              />
+              <Chip
+                label={`Cash: ${money(reportPaymentTotals.cash)}`}
+                variant="outlined"
+              />
+              <Chip
+                label={`Cheque: ${money(reportPaymentTotals.cheque)}`}
+                variant="outlined"
+              />
+              <Chip
+                label={`UPI: ${money(reportPaymentTotals.upi)}`}
+                variant="outlined"
+              />
               <Chip
                 label={`A/C Transfer: ${money(reportPaymentTotals.accountTransfer)}`}
                 variant="outlined"
               />
             </Stack>
           ) : isSalesReturnReport ? (
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} flexWrap="wrap" useFlexGap>
-              <Chip label={`Rows: ${reportSalesReturnRows.length}`} color="primary" />
-              <Chip label={`Return Total: ${money(reportSalesReturnTotal)}`} color="warning" />
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1}
+              flexWrap="wrap"
+              useFlexGap
+            >
+              <Chip
+                label={`Rows: ${reportSalesReturnRows.length}`}
+                color="primary"
+              />
+              <Chip
+                label={`Return Total: ${money(reportSalesReturnTotal)}`}
+                color="warning"
+              />
             </Stack>
           ) : (
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} flexWrap="wrap" useFlexGap>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={1}
+              flexWrap="wrap"
+              useFlexGap
+            >
               <Chip label={`Rows: ${reportSalesRows.length}`} color="primary" />
-              <Chip label={`Invoice: ${money(reportSalesTotals.invoice)}`} color="success" />
-              <Chip label={`Return: ${money(reportSalesTotals.returned)}`} variant="outlined" />
-              <Chip label={`Collected: ${money(reportSalesTotals.received)}`} variant="outlined" />
-              <Chip label={`Balance: ${money(reportSalesTotals.balance)}`} color="warning" />
+              <Chip
+                label={`Invoice: ${money(reportSalesTotals.invoice)}`}
+                color="success"
+              />
+              <Chip
+                label={`Return: ${money(reportSalesTotals.returned)}`}
+                variant="outlined"
+              />
+              <Chip
+                label={`Collected: ${money(reportSalesTotals.received)}`}
+                variant="outlined"
+              />
+              <Chip
+                label={`Balance: ${money(reportSalesTotals.balance)}`}
+                color="warning"
+              />
             </Stack>
           )}
         </Stack>
@@ -174,7 +240,11 @@ export default function ReportsSection({
         <Stack spacing={1}>
           {isPaymentReport
             ? reportPaymentRows.map((r, i) => (
-                <Card key={`${r.invoice_no}-${i}`} variant="outlined" sx={{ p: 1.2, borderRadius: 2 }}>
+                <Card
+                  key={`${r.invoice_no}-${i}`}
+                  variant="outlined"
+                  sx={{ p: 1.2, borderRadius: 2 }}
+                >
                   <Stack spacing={0.6}>
                     <Stack direction="row" justifyContent="space-between">
                       <Typography fontWeight={700}>{r.invoice_no}</Typography>
@@ -184,18 +254,26 @@ export default function ReportsSection({
                     </Stack>
                     <Typography fontWeight={700}>{r.customer_name}</Typography>
                     <Typography fontSize={13} color="text.secondary">
-                      Cash {money(r.cash_amount)} | Cheque {money(r.cheque_amount)}
+                      Cash {money(r.cash_amount)} | Cheque{" "}
+                      {money(r.cheque_amount)}
                     </Typography>
                     <Typography fontSize={13} color="text.secondary">
-                      UPI {money(r.upi_amount)} | A/C Transfer {money(r.account_transfer_amount)}
+                      UPI {money(r.upi_amount)} | A/C Transfer{" "}
+                      {money(r.account_transfer_amount)}
                     </Typography>
-                    <Typography fontWeight={700}>Total: {money(r.amount)}</Typography>
+                    <Typography fontWeight={700}>
+                      Total: {money(r.amount)}
+                    </Typography>
                   </Stack>
                 </Card>
               ))
             : isSalesReturnReport
               ? reportSalesReturnRows.map((r, i) => (
-                  <Card key={`${r.invoice_no}-${i}`} variant="outlined" sx={{ p: 1.2, borderRadius: 2 }}>
+                  <Card
+                    key={`${r.invoice_no}-${i}`}
+                    variant="outlined"
+                    sx={{ p: 1.2, borderRadius: 2 }}
+                  >
                     <Stack spacing={0.6}>
                       <Stack direction="row" justifyContent="space-between">
                         <Typography fontWeight={700}>{r.invoice_no}</Typography>
@@ -203,16 +281,24 @@ export default function ReportsSection({
                           {r.date}
                         </Typography>
                       </Stack>
-                      <Typography fontWeight={700}>{r.customer_name}</Typography>
+                      <Typography fontWeight={700}>
+                        {r.customer_name}
+                      </Typography>
                       <Typography fontSize={13} color="text.secondary">
                         Items: {r.items || "-"}
                       </Typography>
-                      <Typography fontWeight={700}>Return: {money(r.return_amount)}</Typography>
+                      <Typography fontWeight={700}>
+                        Return: {money(r.return_amount)}
+                      </Typography>
                     </Stack>
                   </Card>
                 ))
               : reportSalesRows.map((r, i) => (
-                  <Card key={`${r.invoice_no}-${i}`} variant="outlined" sx={{ p: 1.2, borderRadius: 2 }}>
+                  <Card
+                    key={`${r.invoice_no}-${i}`}
+                    variant="outlined"
+                    sx={{ p: 1.2, borderRadius: 2 }}
+                  >
                     <Stack spacing={0.6}>
                       <Stack direction="row" justifyContent="space-between">
                         <Typography fontWeight={700}>{r.invoice_no}</Typography>
@@ -220,16 +306,22 @@ export default function ReportsSection({
                           {r.date}
                         </Typography>
                       </Stack>
-                      <Typography fontWeight={700}>{r.customer_name}</Typography>
+                      <Typography fontWeight={700}>
+                        {r.customer_name}
+                      </Typography>
                       <Typography fontSize={13} color="text.secondary">
-                        Invoice: {money(r.invoice_amount)} | Return: {money(r.return_amount)}
+                        Invoice: {money(r.invoice_amount)} | Return:{" "}
+                        {money(r.return_amount)}
                       </Typography>
                       {!isSalesOnlyReport && (
                         <Typography fontSize={13} color="text.secondary">
-                          Collected: {money(r.received_amount)} | Method: {r.payment_method || "-"}
+                          Collected: {money(r.received_amount)} | Method:{" "}
+                          {r.payment_method || "-"}
                         </Typography>
                       )}
-                      <Typography fontWeight={700}>Balance: {money(r.balance)}</Typography>
+                      <Typography fontWeight={700}>
+                        Balance: {money(r.balance)}
+                      </Typography>
                     </Stack>
                   </Card>
                 ))}
@@ -237,11 +329,15 @@ export default function ReportsSection({
             <Typography color="text.secondary">No payment records</Typography>
           )}
           {isSalesReturnReport && reportSalesReturnRows.length === 0 && (
-            <Typography color="text.secondary">No sales return records</Typography>
+            <Typography color="text.secondary">
+              No sales return records
+            </Typography>
           )}
-          {!isPaymentReport && !isSalesReturnReport && reportSalesRows.length === 0 && (
-            <Typography color="text.secondary">No sales records</Typography>
-          )}
+          {!isPaymentReport &&
+            !isSalesReturnReport &&
+            reportSalesRows.length === 0 && (
+              <Typography color="text.secondary">No sales records</Typography>
+            )}
         </Stack>
       ) : (
         <Card sx={{ p: 1, borderRadius: 3 }}>
@@ -249,7 +345,13 @@ export default function ReportsSection({
             <Table
               size="small"
               sx={{
-                minWidth: isPaymentReport ? 1250 : isSalesReturnReport ? 920 : isSalesOnlyReport ? 900 : 1200,
+                minWidth: isPaymentReport
+                  ? 1250
+                  : isSalesReturnReport
+                    ? 920
+                    : isSalesOnlyReport
+                      ? 900
+                      : 1200,
               }}
             >
               <TableHead>
@@ -302,10 +404,18 @@ export default function ReportsSection({
                         <TableCell>{r.date}</TableCell>
                         <TableCell>{r.invoice_no}</TableCell>
                         <TableCell>{r.customer_name}</TableCell>
-                        <TableCell align="right">{money(r.cash_amount)}</TableCell>
-                        <TableCell align="right">{money(r.cheque_amount)}</TableCell>
-                        <TableCell align="right">{money(r.upi_amount)}</TableCell>
-                        <TableCell align="right">{money(r.account_transfer_amount)}</TableCell>
+                        <TableCell align="right">
+                          {money(r.cash_amount)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {money(r.cheque_amount)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {money(r.upi_amount)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {money(r.account_transfer_amount)}
+                        </TableCell>
                         <TableCell align="right">{money(r.amount)}</TableCell>
                         <TableCell>{r.note || "-"}</TableCell>
                       </TableRow>
@@ -317,7 +427,9 @@ export default function ReportsSection({
                           <TableCell>{r.invoice_no}</TableCell>
                           <TableCell>{r.customer_name}</TableCell>
                           <TableCell>{r.items || "-"}</TableCell>
-                          <TableCell align="right">{money(r.return_amount)}</TableCell>
+                          <TableCell align="right">
+                            {money(r.return_amount)}
+                          </TableCell>
                         </TableRow>
                       ))
                     : reportSalesRows.map((r, i) => (
@@ -325,36 +437,54 @@ export default function ReportsSection({
                           <TableCell>{r.date}</TableCell>
                           <TableCell>{r.invoice_no}</TableCell>
                           <TableCell>{r.customer_name}</TableCell>
-                          <TableCell align="right">{money(r.invoice_amount)}</TableCell>
-                          <TableCell align="right">{money(r.return_amount)}</TableCell>
+                          <TableCell align="right">
+                            {money(r.invoice_amount)}
+                          </TableCell>
+                          <TableCell align="right">
+                            {money(r.return_amount)}
+                          </TableCell>
                           {!isSalesOnlyReport && (
-                            <TableCell align="right">{money(r.received_amount)}</TableCell>
+                            <TableCell align="right">
+                              {money(r.received_amount)}
+                            </TableCell>
                           )}
-                          <TableCell align="right">{money(r.balance)}</TableCell>
-                          {!isSalesOnlyReport && <TableCell>{r.payment_method || "-"}</TableCell>}
+                          <TableCell align="right">
+                            {money(r.balance)}
+                          </TableCell>
+                          {!isSalesOnlyReport && (
+                            <TableCell>{r.payment_method || "-"}</TableCell>
+                          )}
                         </TableRow>
                       ))}
                 {isPaymentReport && reportPaymentRows.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={9}>
-                      <Typography color="text.secondary">No payment records</Typography>
+                      <Typography color="text.secondary">
+                        No payment records
+                      </Typography>
                     </TableCell>
                   </TableRow>
                 )}
                 {isSalesReturnReport && reportSalesReturnRows.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5}>
-                      <Typography color="text.secondary">No sales return records</Typography>
+                      <Typography color="text.secondary">
+                        No sales return records
+                      </Typography>
                     </TableCell>
                   </TableRow>
                 )}
-                {!isPaymentReport && !isSalesReturnReport && reportSalesRows.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={isSalesOnlyReport ? 6 : 8}>
-                      <Typography color="text.secondary">No sales records</Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
+                {!isPaymentReport &&
+                  !isSalesReturnReport &&
+                  reportSalesRows.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={isSalesOnlyReport ? 6 : 8}>
+                        <Typography color="text.secondary">
+                          No sales records
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  )}
               </TableBody>
             </Table>
           </TableContainer>

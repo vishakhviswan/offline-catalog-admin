@@ -269,7 +269,11 @@ export default function AdminDashboard() {
                     {o.customer_name || "—"}
                   </Typography>
                   <Typography fontSize={12} color="text.secondary">
-                    {new Date(o.created_at).toLocaleDateString()}
+                    {new Date(o.created_at).toLocaleDateString("en-GB", {
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
                   </Typography>
                 </Box>
                 <Typography fontWeight={700}>₹{o.total}</Typography>

@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   Box,
   Button,
   Card,
+  CircularProgress,
   Drawer,
   Stack,
+  TextField,
   Typography,
   useMediaQuery,
 } from "@mui/material";
@@ -24,7 +25,12 @@ import ReturnsSection from "../components/salesManComponents/ReturnsSection";
 
 const STORAGE_KEY = "salesman_state_v1";
 const SECTION_FILTER_KEY = "salesman_section_filters_v1";
-const WA_TARGET = "+919995976563";
+const SALESMAN_AUTH_KEY = "salesman_auth_v1";
+const SALESMAN_SECTION_KEY = "salesman_current_section_v1";
+const SALESMAN_USERS = [
+  { mobile: "7025813716", password: "1234", name: "Abhijith" },
+  { mobile: "9995976563", password: "1234", name: "Vishakh" },
+];
 
 const SECTIONS = [
   { id: "dashboard", label: "Dashboard" },
@@ -61,7 +67,14 @@ const PAYMENT_METHOD_COLUMNS = [
 
 const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
 const money = (v) => num(v).toFixed(2);
-const dateFmt = (v) => (v ? new Date(v).toLocaleDateString() : "-");
+const dateFmt = (v) =>
+  v
+    ? new Date(v).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "-";
 const toStartOfDay = (v) => {
   const d = new Date(v);
   d.setHours(0, 0, 0, 0);
@@ -89,6 +102,170 @@ const startOfWeek = (v) => {
   return d;
 };
 const normalizePhone = (v) => String(v || "").replace(/\D/g, "");
+const normalizeMobile = (v) => String(v || "").replace(/\D/g, "");
+
+function buildQuoteSet(category, openers, actions, outcomes) {
+  const out = [];
+  openers.forEach((a) => {
+    actions.forEach((b) => {
+      outcomes.forEach((c) => {
+        out.push({ category, text: `${a} ${b} ${c}` });
+      });
+    });
+  });
+  return out;
+}
+
+const SALES_QUOTES = buildQuoteSet(
+  "sales",
+  [
+    "വിൽപ്പനയുടെ വഴി വിശ്വാസത്തോടെ തുടങ്ങൂ,",
+    "ഗ്രാഹകനെ ആദ്യം മനസ്സിലാക്കൂ,",
+    "ഓരോ സന്ദർശനവും ഒരു പുതിയ അവസരമാണ്,",
+    "സമയബന്ധിതമായ ഫോളോ-അപ്പ് വിജയത്തെ അടുത്താക്കും,",
+  ],
+  [
+    "സത്യസന്ധമായ നിർദേശങ്ങൾ നൽകി,",
+    "ആവശ്യത്തിന് യോജിച്ച ഉൽപ്പന്നം നിർദ്ദേശിച്ച്,",
+    "ചിരിയോടെ സംസാരിച്ച് ബന്ധം ശക്തമാക്കി,",
+  ],
+  [
+    "ഇന്നത്തെ ടാർഗറ്റ് നാളെയുടെ റെക്കോർഡാകും.",
+    "ചെറിയ ഓർഡറുകൾ വലിയ ബന്ധങ്ങളായി വളരും.",
+    "വിശ്വാസം വരുമാനത്തേക്കാൾ വലിയ നിക്ഷേപമാണ്.",
+  ],
+);
+
+const HARD_WORK_QUOTES = buildQuoteSet(
+  "hard_work",
+  [
+    "കഠിനാധ്വാനം ഒരു ദിവസം പോലും വഞ്ചിക്കില്ല,",
+    "ദിവസേന ചെയ്യുന്ന ചെറിയ ശ്രമങ്ങൾ,",
+    "ക്രമശീലം ചേർന്ന പരിശ്രമം,",
+    "തളർച്ചയെ മറികടക്കുന്ന സ്ഥിരത,",
+  ],
+  [
+    "സമയത്ത് ജോലി പൂർത്തിയാക്കി,",
+    "ഓരോ തെറ്റിലും പാഠം കണ്ടെടുത്തു,",
+    "ഉത്തരവാദിത്വം മനസ്സോടെ ഏറ്റെടുത്ത്,",
+  ],
+  [
+    "വലിയ വിജയത്തിലേക്ക് വഴികാട്ടും.",
+    "മറ്റുള്ളവർക്കും പ്രചോദനമാകും.",
+    "നിന്റെ വളർച്ച ഉറപ്പാക്കും.",
+  ],
+);
+
+const MOTIVATION_QUOTES = buildQuoteSet(
+  "motivation",
+  [
+    "തുടങ്ങാൻ ധൈര്യം മതി,",
+    "ഇന്ന് ഒന്നുകിൽ ചെറിയൊരു മുന്നേറ്റം ചെയ്യൂ,",
+    "പരാജയം എത്തിയാലും യാത്ര നിർത്തരുത്,",
+    "നിന്നെ വിശ്വസിക്കുന്ന മനസ്സ് കൈവിടരുത്,",
+  ],
+  [
+    "സ്വയം ഓരോ ദിവസവും മെച്ചപ്പെടുത്തി,",
+    "ലക്ഷ്യം മനസിൽ നിറുത്തി,",
+    "നല്ല ചിന്തകളെ പ്രവർത്തിയാക്കി,",
+  ],
+  [
+    "നാളെ നീ ഇന്നത്തേതിനേക്കാൾ ശക്തനായിരിക്കും.",
+    "വിജയം നിന്റെ വാതിൽ തേടിയെത്തും.",
+    "സ്വപ്നങ്ങൾ യാഥാർത്ഥ്യത്തിലേക്ക് മാറും.",
+  ],
+);
+
+const WELCOME_QUOTES = [
+  ...SALES_QUOTES,
+  ...HARD_WORK_QUOTES,
+  ...MOTIVATION_QUOTES,
+];
+
+function pickIndex(length) {
+  return Math.floor(Math.random() * Math.max(1, length));
+}
+
+function pickNextQuoteIndex(length, lastIndex) {
+  if (length <= 1) return 0;
+  if (!Number.isInteger(lastIndex) || lastIndex < 0 || lastIndex >= length) {
+    return pickIndex(length);
+  }
+  const offset = 1 + pickIndex(length - 1);
+  return (lastIndex + offset) % length;
+}
+
+function loadWelcomeQuoteForSalesman(mobile) {
+  const clean = normalizeMobile(mobile);
+  if (!clean) return null;
+  // const key = `${SALESMAN_WELCOME_QUOTES_KEY}_${clean}`;
+  const total = WELCOME_QUOTES.length;
+  const fallbackIndex = pickIndex(total);
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || "null");
+    const nextIndex = pickNextQuoteIndex(total, parsed?.lastIndex);
+    localStorage.setItem(
+      key,
+      JSON.stringify({ lastIndex: nextIndex, at: new Date().toISOString() }),
+    );
+    return {
+      index: nextIndex,
+      text: WELCOME_QUOTES[nextIndex]?.text || "",
+    };
+  } catch {
+    localStorage.setItem(
+      key,
+      JSON.stringify({
+        lastIndex: fallbackIndex,
+        at: new Date().toISOString(),
+      }),
+    );
+    return {
+      index: fallbackIndex,
+      text: WELCOME_QUOTES[fallbackIndex]?.text || "",
+    };
+  }
+}
+
+function findSalesmanUser(mobile, password) {
+  const cleanMobile = normalizeMobile(mobile);
+  return SALESMAN_USERS.find(
+    (u) =>
+      u.mobile === cleanMobile && String(u.password) === String(password || ""),
+  );
+}
+
+function loadSalesmanSession() {
+  try {
+    const parsed = JSON.parse(
+      localStorage.getItem(SALESMAN_AUTH_KEY) || "null",
+    );
+    const cleanMobile = normalizeMobile(parsed?.mobile);
+    if (!cleanMobile) return null;
+    const user = SALESMAN_USERS.find((u) => u.mobile === cleanMobile);
+    if (!user) return null;
+    return { mobile: user.mobile, name: user.name };
+  } catch {
+    return null;
+  }
+}
+
+function loadCurrentSection() {
+  try {
+    const saved = localStorage.getItem(SALESMAN_SECTION_KEY);
+    return saved && SECTIONS.some((s) => s.id === saved) ? saved : "dashboard";
+  } catch {
+    return "dashboard";
+  }
+}
+
+function saveCurrentSection(section) {
+  try {
+    localStorage.setItem(SALESMAN_SECTION_KEY, section);
+  } catch {
+    // Ignore localStorage errors
+  }
+}
 
 function loadStore() {
   try {
@@ -147,11 +324,18 @@ function orderInsert(assignments, ids, targetId, targetPos) {
 }
 
 export default function Salesman() {
-  const navigate = useNavigate();
   const isMobile = useMediaQuery("(max-width:900px)");
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [section, setSection] = useState("dashboard");
+  const [authSession, setAuthSession] = useState(loadSalesmanSession);
+  const [authMobile, setAuthMobile] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [showWelcomePanel, setShowWelcomePanel] = useState(true);
+  const [welcomeQuotes, setWelcomeQuotes] = useState(null);
+  const [section, setSection] = useState(() => {
+    const session = loadSalesmanSession();
+    return session ? loadCurrentSection() : "dashboard";
+  });
   const [loading, setLoading] = useState(false);
   const [invoices, setInvoices] = useState([]);
   const [itemsByInvoice, setItemsByInvoice] = useState({});
@@ -186,6 +370,55 @@ export default function Salesman() {
   const orderOf = (id) => num(store.assignments[id], 9999);
   const paymentsOf = (id) => store.payments[id] || [];
   const returnsOf = (id) => store.returns[id] || {};
+
+  useEffect(() => {
+    if (authSession) {
+      localStorage.setItem(SALESMAN_AUTH_KEY, JSON.stringify(authSession));
+    } else {
+      localStorage.removeItem(SALESMAN_AUTH_KEY);
+    }
+  }, [authSession]);
+
+  useEffect(() => {
+    if (authSession) {
+      saveCurrentSection(section);
+    }
+  }, [authSession, section]);
+
+  useEffect(() => {
+    if (!authSession) {
+      setWelcomeQuotes(null);
+      return;
+    }
+    // setShowWelcomePanel(true);
+    // setWelcomeQuotes(loadWelcomeQuoteForSalesman(authSession.mobile));
+  }, [authSession]);
+
+  const [welcomeCountdown, setWelcomeCountdown] = useState(10);
+
+  useEffect(() => {
+    if (welcomeQuotes && showWelcomePanel) {
+      setWelcomeCountdown(10);
+      const timer = setTimeout(() => {
+        setShowWelcomePanel(false);
+      }, 10000); // 10 seconds
+
+      const countdownTimer = setInterval(() => {
+        setWelcomeCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownTimer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => {
+        clearTimeout(timer);
+        clearInterval(countdownTimer);
+      };
+    }
+  }, [welcomeQuotes, showWelcomePanel]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
@@ -227,8 +460,9 @@ export default function Salesman() {
   }
 
   useEffect(() => {
+    if (!authSession) return;
     refreshData();
-  }, []);
+  }, [authSession]);
 
   useEffect(() => {
     if (!invoices.length) return;
@@ -251,8 +485,15 @@ export default function Salesman() {
   const orderedInvoices = [...invoices].sort(
     (a, b) => orderOf(a.id) - orderOf(b.id),
   );
-  const invoiceDateTs = (inv) =>
-    new Date(inv.invoice_date || inv.created_at || Date.now()).getTime();
+  const invoiceDateTs = (inv) => {
+    const rawDate = new Date(inv.invoice_date || inv.created_at || Date.now());
+    const localDate = new Date(
+      rawDate.getFullYear(),
+      rawDate.getMonth(),
+      rawDate.getDate(),
+    );
+    return localDate.getTime();
+  };
   const setSectionFilter = (key, patch) => {
     setSectionFilters((prev) => ({
       ...prev,
@@ -334,7 +575,8 @@ export default function Salesman() {
   const pending = pendingAll.filter((inv) =>
     isInvoiceInDateFilter("supply", inv),
   );
-  const current = pending.find((inv) => inv.id === supplyShopId) || pending[0] || null;
+  const current =
+    pending.find((inv) => inv.id === supplyShopId) || pending[0] || null;
   const currentIndex = current
     ? pending.findIndex((inv) => inv.id === current.id)
     : -1;
@@ -483,7 +725,10 @@ export default function Salesman() {
     });
     const parts = Object.entries(grouped)
       .filter(([, amount]) => num(amount) > 0)
-      .map(([method, amount]) => `Rs ${money(amount)} by ${label[method] || method}`);
+      .map(
+        ([method, amount]) =>
+          `Rs ${money(amount)} by ${label[method] || method}`,
+      );
     return parts.length ? parts.join(", ") : "Rs 0";
   }
 
@@ -681,7 +926,12 @@ export default function Salesman() {
   const salesRows = orderedInvoices.map((inv) => {
     const f = calc(inv);
     const rawDate = new Date(inv.invoice_date || inv.created_at || Date.now());
-    const dateTs = rawDate.getTime();
+    const localDate = new Date(
+      rawDate.getFullYear(),
+      rawDate.getMonth(),
+      rawDate.getDate(),
+    );
+    const dateTs = localDate.getTime();
     return {
       date: dateFmt(rawDate),
       date_ts: Number.isFinite(dateTs) ? dateTs : NaN,
@@ -698,8 +948,15 @@ export default function Salesman() {
 
   const paymentRows = orderedInvoices.flatMap((inv) =>
     paymentsOf(inv.id).map((p) => {
-      const rawDate = new Date(p.at || inv.invoice_date || inv.created_at || Date.now());
-      const dateTs = rawDate.getTime();
+      const rawDate = new Date(
+        p.at || inv.invoice_date || inv.created_at || Date.now(),
+      );
+      const localDate = new Date(
+        rawDate.getFullYear(),
+        rawDate.getMonth(),
+        rawDate.getDate(),
+      );
+      const dateTs = localDate.getTime();
       const amount = num(p.amount);
       const method = String(p.method || "").toLowerCase();
       return {
@@ -721,10 +978,17 @@ export default function Salesman() {
     .map((inv) => {
       const f = calc(inv);
       if (f.returnAmount <= 0) return null;
-      const rawDate = new Date(inv.invoice_date || inv.created_at || Date.now());
-      const dateTs = rawDate.getTime();
+      const rawDate = new Date(
+        inv.invoice_date || inv.created_at || Date.now(),
+      );
+      const localDate = new Date(
+        rawDate.getFullYear(),
+        rawDate.getMonth(),
+        rawDate.getDate(),
+      );
+      const dateTs = localDate.getTime();
       return {
-        date: dateFmt(rawDate),
+        date: dateFmt(localDate),
         date_ts: Number.isFinite(dateTs) ? dateTs : NaN,
         invoice_no: inv.invoice_no || "-",
         customer_name: inv.customer_name || "-",
@@ -802,7 +1066,8 @@ export default function Salesman() {
     0,
   );
   const reportFilterLabel =
-    REPORT_DATE_FILTERS.find((x) => x.id === reportDateFilter)?.label || "Today";
+    REPORT_DATE_FILTERS.find((x) => x.id === reportDateFilter)?.label ||
+    "Today";
   const isPaymentReport = reportType === "payment";
   const isSalesOnlyReport = reportType === "sales";
   const isSalesReturnReport = reportType === "sales_return";
@@ -823,9 +1088,54 @@ export default function Salesman() {
     invoiceCount: orderedInvoices.length,
     suppliedCount: suppliedAll.length,
     pendingCount: pendingAll.length,
-    salesAmount: orderedInvoices.reduce((s, inv) => s + calc(inv).invoiceAmount, 0),
-    collectedAmount: orderedInvoices.reduce((s, inv) => s + calc(inv).received, 0),
+    salesAmount: orderedInvoices.reduce(
+      (s, inv) => s + calc(inv).invoiceAmount,
+      0,
+    ),
+    collectedAmount: orderedInvoices.reduce(
+      (s, inv) => s + calc(inv).received,
+      0,
+    ),
     balanceAmount: orderedInvoices.reduce((s, inv) => s + calc(inv).balance, 0),
+  };
+
+  const handleShareReportViaWhatsapp = () => {
+    if (reportCustomMissing) {
+      toast.error("Select custom from and to dates");
+      return;
+    }
+
+    // First download the PDF
+    handleDownloadReport();
+
+    // Then open WhatsApp with summary
+    const reportTitle = isPaymentReport
+      ? `Payment Report (${reportFilterLabel})`
+      : isSalesReturnReport
+        ? `Sales Return Report (${reportFilterLabel})`
+        : reportType === "sales"
+          ? `Sales Report (${reportFilterLabel})`
+          : `Sales & Collection Report (${reportFilterLabel})`;
+
+    const summaryText = isPaymentReport
+      ? `📊 *${reportTitle}*\n\n📈 Summary:\n• Total Rows: ${reportPaymentRows.length}\n• Total Amount: ₹${money(reportPaymentTotals.total)}\n• Cash: ₹${money(reportPaymentTotals.cash)}\n• Cheque: ₹${money(reportPaymentTotals.cheque)}\n• UPI: ₹${money(reportPaymentTotals.upi)}\n• Account Transfer: ₹${money(reportPaymentTotals.accountTransfer)}\n\n📄 PDF report downloaded. Please attach it to this message.`
+      : isSalesReturnReport
+        ? `📊 *${reportTitle}*\n\n📈 Summary:\n• Total Rows: ${reportSalesReturnRows.length}\n• Return Total: ₹${money(reportSalesReturnTotal)}\n\n📄 PDF report downloaded. Please attach it to this message.`
+        : `📊 *${reportTitle}*\n\n📈 Summary:\n• Total Rows: ${reportSalesRows.length}\n• Invoice Amount: ₹${money(reportSalesTotals.invoice)}\n• Return Amount: ₹${money(reportSalesTotals.returned)}\n• Collected Amount: ₹${money(reportSalesTotals.received)}\n• Balance Amount: ₹${money(reportSalesTotals.balance)}\n\n📄 PDF report downloaded. Please attach it to this message.`;
+
+    const phone = normalizePhone(WA_TARGET);
+    if (!phone) {
+      toast.error("Invalid WhatsApp number");
+      return;
+    }
+    const text = encodeURIComponent(summaryText);
+    const primaryUrl = `https://wa.me/${phone}?text=${text}`;
+    const fallbackUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${text}`;
+    const popup = window.open(primaryUrl, "_blank", "noopener,noreferrer");
+    if (!popup) window.location.href = fallbackUrl;
+    toast.success(
+      "PDF downloaded and WhatsApp opened - please attach the PDF to your message",
+    );
   };
 
   const handleDownloadReport = () => {
@@ -926,6 +1236,139 @@ export default function Salesman() {
     });
   };
 
+  function handleSalesmanLogin(e) {
+    e?.preventDefault?.();
+    const user = findSalesmanUser(authMobile, authPassword);
+    if (!user) {
+      toast.error("Invalid mobile number or password");
+      return;
+    }
+    setAuthSession({ mobile: user.mobile, name: user.name });
+    setAuthPassword("");
+    setSection("dashboard");
+    toast.success(`Welcome ${user.name}`);
+  }
+
+  function handleSalesmanLogout() {
+    setAuthSession(null);
+    setAuthMobile("");
+    setAuthPassword("");
+    setSidebarOpen(false);
+    setShowWelcomePanel(true);
+    setWelcomeQuotes(null);
+    try {
+      localStorage.removeItem(SALESMAN_SECTION_KEY);
+    } catch {
+      // Ignore localStorage errors
+    }
+    toast.success("Logged out");
+  }
+
+  if (!authSession) {
+    return (
+      <Box maxWidth={480} mx="auto" sx={{ p: { xs: 1.2, md: 2.5 }, pb: 4 }}>
+        <Card
+          sx={{
+            p: { xs: 1.4, md: 2 },
+            borderRadius: 3,
+            border: "1px solid",
+            borderColor: "divider",
+            background:
+              "linear-gradient(120deg, #f8fafc 0%, #e0f2fe 55%, #dbeafe 100%)",
+          }}
+        >
+          <Typography fontWeight={800} fontSize={{ xs: 20, md: 22 }} mb={0.4}>
+            Salesman Login
+          </Typography>
+          <Typography color="text.secondary" fontSize={13} mb={1.5}>
+            Mobile number and password use cheythu login cheyyuka
+          </Typography>
+          <Stack component="form" spacing={1.2} onSubmit={handleSalesmanLogin}>
+            <TextField
+              size="small"
+              label="Mobile Number"
+              value={authMobile}
+              onChange={(e) => setAuthMobile(normalizeMobile(e.target.value))}
+              inputProps={{
+                maxLength: 10,
+                inputMode: "numeric",
+                pattern: "[0-9]*",
+              }}
+            />
+            <TextField
+              size="small"
+              type="password"
+              label="Password"
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
+            />
+            <Button type="submit" variant="contained">
+              Login
+            </Button>
+          </Stack>
+        </Card>
+      </Box>
+    );
+  }
+
+  if (showWelcomePanel && welcomeQuotes) {
+    return (
+      <Box maxWidth={900} mx="auto" sx={{ p: { xs: 1.2, md: 2.5 }, pb: 4 }}>
+        <Card
+          sx={{
+            p: { xs: 1.4, md: 2 },
+            borderRadius: 3,
+            border: "1px solid",
+            borderColor: "divider",
+            background:
+              "linear-gradient(120deg, #f8fafc 0%, #ecfeff 50%, #dbeafe 100%)",
+          }}
+        >
+          <Typography fontWeight={900} fontSize={{ xs: 21, md: 26 }} mb={0.4}>
+            Welcome {authSession.name}
+          </Typography>
+          <Typography color="text.secondary" fontSize={13} mb={1.4}>
+            Refresh cheyyumbol puthiya quote kaanum • Auto-close in{" "}
+            {welcomeCountdown}s
+          </Typography>
+
+          <Card
+            variant="outlined"
+            sx={{
+              p: { xs: 1.2, md: 1.5 },
+              borderRadius: 2.2,
+              borderColor: "primary.100",
+              background: "#ffffffcc",
+            }}
+          >
+            <Typography fontSize={16} lineHeight={1.7}>
+              {welcomeQuotes?.text || "-"}
+            </Typography>
+          </Card>
+
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1} mt={1.5}>
+            <Button
+              variant="contained"
+              onClick={() => {
+                setShowWelcomePanel(false);
+              }}
+            >
+              Continue to{" "}
+              {SECTIONS.find((s) => s.id === section)?.label || "Dashboard"}
+            </Button>
+            <Button
+              variant="outlined"
+              color="inherit"
+              onClick={handleSalesmanLogout}
+            >
+              Logout
+            </Button>
+          </Stack>
+        </Card>
+      </Box>
+    );
+  }
+
   return (
     <Box maxWidth={1600} mx="auto" sx={{ p: { xs: 1.25, md: 2.5 }, pb: 4 }}>
       <Card
@@ -950,7 +1393,8 @@ export default function Salesman() {
               Salesman Supply Panel
             </Typography>
             <Typography color="text.secondary" fontSize={13}>
-              Section: {SECTIONS.find((s) => s.id === section)?.label}
+              Welcome, {authSession.name} | Section:{" "}
+              {SECTIONS.find((s) => s.id === section)?.label}
             </Typography>
           </Box>
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
@@ -966,9 +1410,9 @@ export default function Salesman() {
             <Button
               variant="outlined"
               startIcon={<ArrowBackIcon />}
-              onClick={() => navigate("/dashboard")}
+              onClick={handleSalesmanLogout}
             >
-              Back to Admin
+              Logout
             </Button>
             <Button
               variant="outlined"
@@ -981,16 +1425,23 @@ export default function Salesman() {
         </Stack>
       </Card>
 
-      <Stack direction={{ xs: "column", lg: "row" }} spacing={2} alignItems="flex-start">
+      <Stack
+        direction={{ xs: "column", lg: "row" }}
+        spacing={2}
+        alignItems="flex-start"
+      >
         {!isMobile && (
-          <Card sx={{ width: 250, borderRadius: 3, position: "sticky", top: 16 }}>
+          <Card
+            sx={{ width: 250, borderRadius: 3, position: "sticky", top: 16 }}
+          >
             {sideMenu}
           </Card>
         )}
         <Box flex={1} minWidth={0}>
           {loading ? (
-            <Card sx={{ p: 2.5, borderRadius: 3 }}>
-              <Typography>Loading...</Typography>
+            <Card sx={{ p: 4, borderRadius: 3, textAlign: "center" }}>
+              <CircularProgress size={40} sx={{ mb: 2 }} />
+              <Typography>Loading data...</Typography>
             </Card>
           ) : section === "dashboard" ? (
             <DashboardSection
@@ -1064,7 +1515,9 @@ export default function Salesman() {
             <SupplySection
               isMobile={isMobile}
               supplyDate={sectionFilters.supply?.date || ""}
-              onChangeSupplyDate={(date) => setSectionFilter("supply", { date })}
+              onChangeSupplyDate={(date) =>
+                setSectionFilter("supply", { date })
+              }
               onClearSupplyDate={() => setSectionFilter("supply", { date: "" })}
               current={current}
               currentMetrics={currentMetrics}
@@ -1086,7 +1539,10 @@ export default function Salesman() {
                   const c = { ...(prev.returns[invoiceId] || {}) };
                   if (existing) delete c[it.id];
                   else c[it.id] = { qty: num(it.qty), removed: false };
-                  return { ...prev, returns: { ...prev.returns, [invoiceId]: c } };
+                  return {
+                    ...prev,
+                    returns: { ...prev.returns, [invoiceId]: c },
+                  };
                 });
               }}
               onChangeReturnQty={(invoiceId, itemId, value) =>
@@ -1176,6 +1632,7 @@ export default function Salesman() {
               reportPaymentTotals={reportPaymentTotals}
               reportSalesReturnTotal={reportSalesReturnTotal}
               onDownloadPdf={handleDownloadReport}
+              onShareWhatsapp={handleShareReportViaWhatsapp}
             />
           ) : (
             <ReturnsSection

@@ -101,46 +101,73 @@ function parseDateSafe(value) {
   if (value === null || value === undefined) return null;
 
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value.toISOString().slice(0, 10);
+    const localDate = new Date(
+      value.getFullYear(),
+      value.getMonth(),
+      value.getDate(),
+    );
+    const y = localDate.getFullYear();
+    const m = localDate.getMonth() + 1;
+    const d = localDate.getDate();
+    return `${y}-${m.toString().padStart(2, "0")}-${d.toString().padStart(2, "0")}`;
   }
 
   const text = String(value || "").trim();
   if (!text) return null;
 
+  const m = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  if (m) {
+    const first = Number(m[1]);
+    const second = Number(m[2]);
+    let year = Number(m[3]);
+
+    if (
+      !Number.isFinite(first) ||
+      !Number.isFinite(second) ||
+      !Number.isFinite(year)
+    ) {
+      return null;
+    }
+
+    if (year < 100) {
+      year += 2000;
+    }
+
+    let day = first;
+    let month = second;
+
+    if (first > 12 && second <= 12) {
+      day = first;
+      month = second;
+    } else if (second > 12 && first <= 12) {
+      day = second;
+      month = first;
+    } else {
+      day = first;
+      month = second;
+    }
+
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+      return null;
+    }
+
+    return `${year}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+  }
+
   const directDate = new Date(text);
   if (!Number.isNaN(directDate.getTime())) {
-    return directDate.toISOString().slice(0, 10);
+    const localDate = new Date(
+      directDate.getFullYear(),
+      directDate.getMonth(),
+      directDate.getDate(),
+    );
+    const y = localDate.getFullYear();
+    const m = localDate.getMonth() + 1;
+    const d = localDate.getDate();
+    return `${y}-${m.toString().padStart(2, "0")}-${d.toString().padStart(2, "0")}`;
   }
 
-  const m = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
-  if (!m) return null;
-
-  const first = Number(m[1]);
-  const second = Number(m[2]);
-  let year = Number(m[3]);
-
-  if (!Number.isFinite(first) || !Number.isFinite(second) || !Number.isFinite(year)) {
-    return null;
-  }
-
-  if (year < 100) {
-    year += 2000;
-  }
-
-  let day = first;
-  let month = second;
-
-  if (first <= 12 && second > 12) {
-    day = second;
-    month = first;
-  }
-
-  const parsed = new Date(Date.UTC(year, month - 1, day));
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  return parsed.toISOString().slice(0, 10);
+  return null;
 }
 
 function findHeaderKey(headers, aliases) {
@@ -343,7 +370,9 @@ async function parseAndValidateWorkbook(file) {
 function extractApiErrors(err) {
   const data = err?.response?.data || err?.data;
   const message =
-    data?.message || err?.message || "Analyze failed due to an unexpected error";
+    data?.message ||
+    err?.message ||
+    "Analyze failed due to an unexpected error";
 
   if (Array.isArray(data?.errors) && data.errors.length) {
     return {
@@ -430,7 +459,9 @@ function normalizeReconcileItems(items) {
   return (Array.isArray(items) ? items : []).map((item) => ({
     excelName: item?.excelName || "",
     status: item?.status || "new_required",
-    match: item?.match ? { id: item.match.id, name: item.match.name || "" } : null,
+    match: item?.match
+      ? { id: item.match.id, name: item.match.name || "" }
+      : null,
     suggestions: dedupeSuggestions(item?.suggestions),
     resolved: item?.status === "exact_match" || item?.status === "alias_match",
     autoCreated: false,
@@ -449,7 +480,8 @@ function getStatusLabel(item) {
   if (item.autoCreated) return "auto created";
   if (item.status === "exact_match") return "exact match";
   if (item.status === "alias_match") return "alias match";
-  if (item.status === "similar_match") return item.resolved ? "resolved" : "similar";
+  if (item.status === "similar_match")
+    return item.resolved ? "resolved" : "similar";
   return "new required";
 }
 
@@ -694,7 +726,8 @@ async function detectDuplicateInvoices(cleanedRows) {
     const incomingCustomer = String(incoming?.customer_name || "").trim();
 
     if (
-      normalizeEntityName(existingCustomer) !== normalizeEntityName(incomingCustomer)
+      normalizeEntityName(existingCustomer) !==
+      normalizeEntityName(incomingCustomer)
     ) {
       differences.push("Customer name changed");
     }
@@ -753,7 +786,8 @@ function buildInvoiceItemRows(invoiceId, items, productNameById) {
 async function persistInvoiceToSupabase(invoice, orderId, productNameById) {
   const invoiceTotal = Number(invoice?.total || 0);
   const invoiceDate =
-    parseDateSafe(invoice?.invoice_date) || new Date().toISOString().slice(0, 10);
+    parseDateSafe(invoice?.invoice_date) ||
+    new Date().toISOString().slice(0, 10);
   const invoicePayload = {
     invoice_no: invoice?.invoice_no || null,
     invoice_date: invoiceDate,
@@ -779,13 +813,19 @@ async function persistInvoiceToSupabase(invoice, orderId, productNameById) {
     throw new Error("Invoice id missing after insert");
   }
 
-  const itemRows = buildInvoiceItemRows(invoiceId, invoice?.items, productNameById);
+  const itemRows = buildInvoiceItemRows(
+    invoiceId,
+    invoice?.items,
+    productNameById,
+  );
 
   if (!itemRows.length) {
     return;
   }
 
-  const { error: itemsError } = await supabase.from("invoice_items").insert(itemRows);
+  const { error: itemsError } = await supabase
+    .from("invoice_items")
+    .insert(itemRows);
   if (itemsError) {
     throw itemsError;
   }
@@ -798,7 +838,8 @@ async function updateExistingInvoiceInSupabase(
 ) {
   const invoiceTotal = Number(invoice?.total || 0);
   const invoiceDate =
-    parseDateSafe(invoice?.invoice_date) || new Date().toISOString().slice(0, 10);
+    parseDateSafe(invoice?.invoice_date) ||
+    new Date().toISOString().slice(0, 10);
 
   const { error: updateError } = await supabase
     .from("invoices")
@@ -959,7 +1000,8 @@ export default function SalesImport() {
   }
 
   async function createEntity(entityType, excelName) {
-    const endpoint = entityType === "customers" ? "/api/customers" : "/api/products";
+    const endpoint =
+      entityType === "customers" ? "/api/customers" : "/api/products";
     const payload =
       entityType === "customers"
         ? { name: excelName }
@@ -967,7 +1009,9 @@ export default function SalesImport() {
     const response = await apiPost(endpoint, payload);
     const entity = extractEntity(response, excelName);
     if (entity.id == null) {
-      throw new Error(`Failed to create ${entityType.slice(0, -1)}: ${excelName}`);
+      throw new Error(
+        `Failed to create ${entityType.slice(0, -1)}: ${excelName}`,
+      );
     }
     return entity;
   }
@@ -1121,7 +1165,9 @@ export default function SalesImport() {
             `${changedCount} duplicate invoice(s) have changes. Choose Update or Skip.`,
           );
         } else {
-          toast("Duplicate invoices already exist with same data. They will be skipped.");
+          toast(
+            "Duplicate invoices already exist with same data. They will be skipped.",
+          );
         }
       }
 
@@ -1145,7 +1191,10 @@ export default function SalesImport() {
       formData.append("file", file);
 
       setProgress(35);
-      const existingResponseData = await apiPost("/api/sales/analyze", formData);
+      const existingResponseData = await apiPost(
+        "/api/sales/analyze",
+        formData,
+      );
 
       setProgress(65);
       const reconcileResponse = await apiPost("/api/import/reconcile", {
@@ -1255,7 +1304,9 @@ export default function SalesImport() {
         const productName = String(row.product_name || "").trim();
         const invoiceDate = parseDateSafe(row.invoice_date);
 
-        const customerId = customerNameToId.get(normalizeEntityName(customerName));
+        const customerId = customerNameToId.get(
+          normalizeEntityName(customerName),
+        );
         const productId = productNameToId.get(normalizeEntityName(productName));
 
         if (customerId == null || productId == null) {
@@ -1370,13 +1421,19 @@ export default function SalesImport() {
       }
 
       if (duplicateUpdateFailures.length) {
-        console.error("Duplicate invoice update failures:", duplicateUpdateFailures);
+        console.error(
+          "Duplicate invoice update failures:",
+          duplicateUpdateFailures,
+        );
         toast.error(
           `${duplicateUpdateFailures.length} duplicate invoice(s) update failed. Check console.`,
         );
       }
 
-      if (!newInvoices.length && (duplicateUpdatedCount > 0 || duplicateSkippedCount > 0)) {
+      if (
+        !newInvoices.length &&
+        (duplicateUpdatedCount > 0 || duplicateSkippedCount > 0)
+      ) {
         setDialogOpen(false);
         return;
       }
@@ -1387,7 +1444,11 @@ export default function SalesImport() {
       }
 
       if (duplicateInvoices.length === 0) {
-        const endpointImport = await trySalesImportEndpoint(file, cleanedRows, newInvoices);
+        const endpointImport = await trySalesImportEndpoint(
+          file,
+          cleanedRows,
+          newInvoices,
+        );
         if (endpointImport.ok) {
           const importedCount =
             Number(endpointImport.response?.imported_invoices) ||
@@ -1446,7 +1507,10 @@ export default function SalesImport() {
           if (isIntegerSyntaxError) {
             try {
               const fallbackPayload = buildIntegerSafeOrderPayload(payload);
-              const orderResponse = await apiPost("/api/orders", fallbackPayload);
+              const orderResponse = await apiPost(
+                "/api/orders",
+                fallbackPayload,
+              );
               const orderId =
                 orderResponse?.order_id ||
                 orderResponse?.id ||
@@ -1510,7 +1574,9 @@ export default function SalesImport() {
       }
 
       if (invoiceMirrorCount > 0) {
-        toast.success(`${invoiceMirrorCount} invoice(s) mirrored to invoices table`);
+        toast.success(
+          `${invoiceMirrorCount} invoice(s) mirrored to invoices table`,
+        );
       }
 
       if (invoiceMirrorFailures.length) {
@@ -1555,7 +1621,8 @@ export default function SalesImport() {
               {rows.map((item) => {
                 const rowKey = getRowKey(entityType, item.excelName);
                 const busy = !!rowLoading[rowKey];
-                const unresolvedSimilar = item.status === "similar_match" && !item.resolved;
+                const unresolvedSimilar =
+                  item.status === "similar_match" && !item.resolved;
 
                 return (
                   <TableRow key={rowKey}>
@@ -1585,7 +1652,8 @@ export default function SalesImport() {
                           options={getAutocompleteOptions(item)}
                           getOptionLabel={(option) => option?.name || ""}
                           isOptionEqualToValue={(option, value) =>
-                            option.id === value.id && option.optionType === value.optionType
+                            option.id === value.id &&
+                            option.optionType === value.optionType
                           }
                           onChange={(_, option) =>
                             handleSuggestionChange(entityType, item, option)
@@ -1682,7 +1750,9 @@ export default function SalesImport() {
                           fullWidth
                         >
                           <MenuItem value="">Select action</MenuItem>
-                          <MenuItem value="update">Update existing invoice</MenuItem>
+                          <MenuItem value="update">
+                            Update existing invoice
+                          </MenuItem>
                           <MenuItem value="skip">Skip this invoice</MenuItem>
                         </Select>
                       ) : (
@@ -1765,8 +1835,9 @@ export default function SalesImport() {
 
               {!!analysis.validation_summary && (
                 <Typography mt={1} fontSize={13} color="text.secondary">
-                  Non-empty Rows: {analysis.validation_summary.nonEmptyRows} | Ignored
-                  Empty Rows: {analysis.validation_summary.ignoredEmptyRows}
+                  Non-empty Rows: {analysis.validation_summary.nonEmptyRows} |
+                  Ignored Empty Rows:{" "}
+                  {analysis.validation_summary.ignoredEmptyRows}
                 </Typography>
               )}
 
@@ -1807,7 +1878,7 @@ export default function SalesImport() {
                           {Array.isArray(err.accepted_headers) &&
                             err.accepted_headers.length > 0 && (
                               <Typography fontSize={12} color="text.secondary">
-                                Accepted headers: {" "}
+                                Accepted headers:{" "}
                                 {err.accepted_headers.join(", ")}
                               </Typography>
                             )}
@@ -1819,20 +1890,22 @@ export default function SalesImport() {
 
               {pendingResolutions > 0 && (
                 <Alert severity="warning" sx={{ mt: 2 }}>
-                  Resolve all similar matches before continuing. Pending: {pendingResolutions}
+                  Resolve all similar matches before continuing. Pending:{" "}
+                  {pendingResolutions}
                 </Alert>
               )}
 
               {changedDuplicateCount > 0 && pendingDuplicateChoices > 0 && (
                 <Alert severity="warning" sx={{ mt: 2 }}>
-                  Duplicate invoice numbers found with changes. Choose Update or Skip for
-                  all ({pendingDuplicateChoices} pending).
+                  Duplicate invoice numbers found with changes. Choose Update or
+                  Skip for all ({pendingDuplicateChoices} pending).
                 </Alert>
               )}
 
               {changedDuplicateCount > 0 && pendingDuplicateChoices === 0 && (
                 <Alert severity="info" sx={{ mt: 2 }}>
-                  Duplicate invoice actions selected. Continue import to apply updates/skips.
+                  Duplicate invoice actions selected. Continue import to apply
+                  updates/skips.
                 </Alert>
               )}
 
