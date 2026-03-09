@@ -1,43 +1,91 @@
 import useDevice from "../hooks/useDevice";
+import { NavLink } from "react-router-dom";
 import {
   MdDashboard,
   MdInventory,
   MdCategory,
   MdPeople,
   MdShoppingCart,
+  MdDeliveryDining,
   MdListAlt,
   MdAddCircleOutline,
+  MdReceiptLong,
   MdSettings,
   MdBusiness,
 } from "react-icons/md";
 
 const menu = [
-  { id: "dashboard", label: "Dashboard", icon: <MdDashboard size={20} /> },
-  { id: "products", label: "Products", icon: <MdInventory size={20} /> },
-  { id: "categories", label: "Categories", icon: <MdCategory size={20} /> },
-  { id: "customers", label: "Customers", icon: <MdPeople size={20} /> },
-  { id: "vendors", label: "Vendors", icon: <MdBusiness size={20} /> },
-  { id: "settings", label: "settings", icon: <MdSettings size={20} /> },
+  {
+    id: "dashboard",
+    path: "/dashboard",
+    label: "Dashboard",
+    icon: <MdDashboard size={20} />,
+  },
+  {
+    id: "products",
+    path: "/products",
+    label: "Products",
+    icon: <MdInventory size={20} />,
+  },
+  {
+    id: "categories",
+    path: "/categories",
+    label: "Categories",
+    icon: <MdCategory size={20} />,
+  },
+  {
+    id: "customers",
+    path: "/customers",
+    label: "Customers",
+    icon: <MdPeople size={20} />,
+  },
+  {
+    id: "vendors",
+    path: "/vendors",
+    label: "Vendors",
+    icon: <MdBusiness size={20} />,
+  },
+  {
+    id: "salesman",
+    path: "/salesman",
+    label: "Salesman",
+    icon: <MdDeliveryDining size={20} />,
+  },
+  {
+    id: "settings",
+    path: "/settings",
+    label: "settings",
+    icon: <MdSettings size={20} />,
+  },
 ];
 
 const ordersMenu = [
   {
     id: "orders-list",
+    path: "/orders-list",
     label: "Order List",
     icon: <MdListAlt size={20} />,
   },
   {
+    id: "invoices",
+    path: "/invoices",
+    label: "Invoices",
+    icon: <MdReceiptLong size={20} />,
+  },
+  {
     id: "create-order",
+    path: "/create-order",
     label: "Create Order",
     icon: <MdAddCircleOutline size={20} />,
   },
   {
+    path: "/sales-import",
     label: "Sales Import",
-      id: "sales-import",
+    id: "sales-import",
   },
 ];
 
-export default function Sidebar({ page, setPage, open, setOpen }) {
+export default function Sidebar({ open, setOpen }) {
   const { isMobile, isTablet } = useDevice();
 
   const sidebarStyle = {
@@ -74,15 +122,16 @@ export default function Sidebar({ page, setPage, open, setOpen }) {
         </div>
 
         {/* MAIN MENU */}
-        {menu.map(({ id, label, icon }) => (
+        {menu.map(({ id, path, label, icon }) => (
           <MenuItem
             key={id}
-            active={page === id}
+            to={path}
             icon={icon}
             label={label}
-            onClick={() => {
-              setPage(id);
-              if (isMobile) setOpen(false);
+            onNavigate={() => {
+              if (isMobile) {
+                setOpen(false);
+              }
             }}
             showText={!isTablet || open}
           />
@@ -91,15 +140,16 @@ export default function Sidebar({ page, setPage, open, setOpen }) {
         {/* ORDERS SECTION */}
         <div style={sectionTitle}>ORDERS</div>
 
-        {ordersMenu.map(({ id, label, icon }) => (
+        {ordersMenu.map(({ id, path, label, icon }) => (
           <MenuItem
             key={id}
-            active={page === id}
+            to={path}
             icon={icon}
             label={label}
-            onClick={() => {
-              setPage(id);
-              if (isMobile) setOpen(false);
+            onNavigate={() => {
+              if (isMobile) {
+                setOpen(false);
+              }
             }}
             showText={!isTablet || open}
           />
@@ -111,24 +161,28 @@ export default function Sidebar({ page, setPage, open, setOpen }) {
 
 /* ================= COMPONENTS ================= */
 
-function MenuItem({ icon, label, onClick, active, showText }) {
+function MenuItem({ icon, label, to, onNavigate, showText }) {
   return (
-    <div
-      onClick={onClick}
-      style={{
+    <NavLink
+      to={to}
+      end
+      onClick={onNavigate}
+      style={({ isActive }) => ({
         padding: "12px 16px",
         cursor: "pointer",
         display: "flex",
         alignItems: "center",
         gap: 12,
-        background: active ? "rgba(255,255,255,0.12)" : "transparent",
-        borderLeft: active ? "4px solid #3b82f6" : "4px solid transparent",
+        background: isActive ? "rgba(255,255,255,0.12)" : "transparent",
+        borderLeft: isActive ? "4px solid #3b82f6" : "4px solid transparent",
         transition: "0.2s",
-      }}
+        color: "#fff",
+        textDecoration: "none",
+      })}
     >
       <span>{icon}</span>
       {showText && <span style={{ fontSize: 14 }}>{label}</span>}
-    </div>
+    </NavLink>
   );
 }
 

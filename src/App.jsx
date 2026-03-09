@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 
 import Sidebar from "./Layout/Sidebar";
 
@@ -7,8 +8,10 @@ import Products from "./pages/Products";
 import Categories from "./pages/Categories";
 import Customers from "./pages/Customers";
 import OrdersList from "./pages/OrdersList";
+import Invoices from "./pages/Invoices";
 import CreateOrders from "./pages/CreateOrders";
 import AdminSettings from "./pages/AdminSettings";
+import Salesman from "./pages/Salesman";
 
 import { SettingsProvider } from "./context/SettingsContext";
 import Vendors from "./pages/Vendors";
@@ -27,57 +30,12 @@ export default function App() {
 /* ================= MAIN APP ================= */
 
 function MainApp() {
-  const [page, setPage] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  function renderPage() {
-    switch (page) {
-      case "settings":
-        return <AdminSettings />;
-
-      case "dashboard":
-        return <Dashboard />;
-
-      case "products":
-        return <Products />;
-
-      case "categories":
-        return <Categories />;
-
-      case "customers":
-        return <Customers />;
-
-      case "vendors":
-        return <Vendors />;
-
-      case "orders-list":
-        return <OrdersList />;
-
-      case "create-order":
-        return (
-          <CreateOrders
-            onBack={() => setPage("orders-list")}
-            onSaved={() => setPage("orders-list")}
-          />
-        );
-
-      case "sales-import":
-        return <SalesImport />;
-      
-
-      default:
-        return <Dashboard />;
-    }
-  }
+  const navigate = useNavigate();
 
   return (
     <div style={layout}>
-      <Sidebar
-        page={page}
-        setPage={setPage}
-        open={sidebarOpen}
-        setOpen={setSidebarOpen}
-      />
+      <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
 
       <div style={content}>
         {/* MOBILE HEADER */}
@@ -88,7 +46,31 @@ function MainApp() {
           <div style={{ fontWeight: 600 }}>Admin Panel</div>
         </div>
 
-        <div style={{ padding: 20 }}>{renderPage()}</div>
+        <div style={{ padding: 20 }}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/categories" element={<Categories />} />
+            <Route path="/customers" element={<Customers />} />
+            <Route path="/vendors" element={<Vendors />} />
+            <Route path="/settings" element={<AdminSettings />} />
+            <Route path="/orders-list" element={<OrdersList />} />
+            <Route path="/invoices" element={<Invoices />} />
+            <Route path="/salesman" element={<Salesman />} />
+            <Route
+              path="/create-order"
+              element={
+                <CreateOrders
+                  onBack={() => navigate("/orders-list")}
+                  onSaved={() => navigate("/orders-list")}
+                />
+              }
+            />
+            <Route path="/sales-import" element={<SalesImport />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </div>
       </div>
     </div>
   );

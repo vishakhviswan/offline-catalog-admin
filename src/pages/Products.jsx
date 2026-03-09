@@ -110,7 +110,7 @@ export default function Products() {
       list = list.filter((p) => Number(p.stock || 0) > 0);
 
     if (stockFilter === "out")
-      list = list.filter((p) => Number(p.stock || 0) === 0);
+      list = list.filter((p) => Number(p.stock || 0) <= 0);
 
     return list;
   }, [products, search, category, imageFilter, stockFilter]);
